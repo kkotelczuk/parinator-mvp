@@ -1,0 +1,425 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>WTC COMMAND CENTER - Pairing Simulator</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        ::-webkit-scrollbar {
+            width: 4px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #0e0e0e;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #3c494f;
+        }
+    </style>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ee7d77",
+                        "on-tertiary-container": "#594a00",
+                        "on-error": "#490106",
+                        "surface-variant": "#252626",
+                        "on-error-container": "#ff9993",
+                        "background": "#0e0e0e",
+                        "secondary-fixed-dim": "#2af381",
+                        "surface-container-highest": "#252626",
+                        "on-secondary-fixed-variant": "#006a33",
+                        "surface-tint": "#bbc8d0",
+                        "tertiary": "#ffe483",
+                        "tertiary-dim": "#edc600",
+                        "on-primary-fixed": "#354147",
+                        "surface-container": "#191a1a",
+                        "on-tertiary-fixed-variant": "#645300",
+                        "on-secondary-container": "#00dc70",
+                        "surface-bright": "#2b2c2c",
+                        "secondary-dim": "#00da70",
+                        "primary-fixed": "#d7e4ec",
+                        "on-tertiary": "#635200",
+                        "primary-dim": "#aebbc2",
+                        "surface-container-high": "#1f2020",
+                        "on-background": "#e7e5e5",
+                        "on-secondary-fixed": "#004a21",
+                        "inverse-on-surface": "#565555",
+                        "on-primary-fixed-variant": "#515d64",
+                        "surface-container-lowest": "#000000",
+                        "on-primary": "#364248",
+                        "inverse-surface": "#fcf9f8",
+                        "secondary-fixed": "#62ff96",
+                        "secondary": "#13ea79",
+                        "outline": "#767575",
+                        "surface": "#0e0e0e",
+                        "primary-container": "#3c494f",
+                        "tertiary-fixed": "#fdd400",
+                        "on-primary-container": "#c5d2da",
+                        "on-tertiary-fixed": "#433700",
+                        "error-dim": "#bb5551",
+                        "on-secondary": "#004f24",
+                        "inverse-primary": "#546167",
+                        "error-container": "#7f2927",
+                        "surface-container-low": "#131313",
+                        "on-surface-variant": "#acabaa",
+                        "tertiary-fixed-dim": "#edc600",
+                        "primary": "#bbc8d0",
+                        "surface-dim": "#0e0e0e",
+                        "outline-variant": "#484848",
+                        "on-surface": "#e7e5e5",
+                        "primary-fixed-dim": "#c9d6de",
+                        "secondary-container": "#00451f",
+                        "tertiary-container": "#fdd400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                }
+            }
+        }
+    </script>
+</head>
+<body class="bg-surface text-on-surface font-body selection:bg-secondary selection:text-on-secondary">
+<!-- Top Navigation Shell -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e0e]">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#bbc8d0] font-headline">WTC COMMAND CENTER</span>
+<nav class="hidden md:flex gap-6">
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">LIVE FEED</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">LIVE RANKINGS</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#bbc8d0] border-b-2 border-[#bbc8d0] pb-1" href="#">PAIRINGS</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">ADMIN</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#bbc8d0] p-2 hover:bg-[#252626]">notifications</button>
+<button class="material-symbols-outlined text-[#bbc8d0] p-2 hover:bg-[#252626]">settings</button>
+<button class="bg-primary text-on-primary px-4 py-1 font-headline font-bold text-xs tracking-widest uppercase">END ROUND</button>
+</div>
+</header>
+<!-- Side Navigation Shell -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 flex flex-col py-4 bg-[#0e0e0e] z-40 hidden lg:flex">
+<div class="px-6 mb-8">
+<h2 class="font-headline font-bold text-lg tracking-tight text-primary">TOURNAMENT ALPHA</h2>
+<p class="font-label text-[10px] tracking-[0.2em] text-outline uppercase">ROUND 4/6</p>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-4 px-6 py-3 text-[#3c494f] opacity-80 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+                DASHBOARD
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-[#3c494f] opacity-80 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="groups">groups</span>
+                ROSTERS
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 bg-[#252626] text-[#bbc8d0] border-l-4 border-[#bbc8d0] font-['Inter'] font-semibold tracking-widest uppercase text-[10px] translate-x-1 duration-150" href="#">
+<span class="material-symbols-outlined" data-icon="swords" style="font-variation-settings: 'FILL' 1;">swords</span>
+                MATCHUPS
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-[#3c494f] opacity-80 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="inventory_2">inventory_2</span>
+                LOGISTICS
+            </a>
+<a class="flex items-center gap-4 px-6 py-3 text-[#3c494f] opacity-80 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="history">history</span>
+                HISTORY
+            </a>
+</nav>
+<div class="mt-auto border-t border-outline-variant/20 pt-4 space-y-1">
+<button class="w-full flex items-center gap-4 px-6 py-3 text-[#3c494f] font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a]">
+<span class="material-symbols-outlined">help</span>
+                SUPPORT
+            </button>
+<button class="w-full flex items-center gap-4 px-6 py-3 text-error font-['Inter'] font-semibold tracking-widest uppercase text-[10px] hover:bg-[#191a1a]">
+<span class="material-symbols-outlined">logout</span>
+                LOGOUT
+            </button>
+</div>
+</aside>
+<!-- Main Content Canvas -->
+<main class="lg:pl-64 pt-14 h-screen flex overflow-hidden">
+<!-- LEFT SIDE: 5x5 Matrix -->
+<section class="flex-1 h-full bg-surface-container flex flex-col p-8 overflow-auto">
+<div class="mb-6 flex justify-between items-end">
+<div>
+<h3 class="font-headline text-2xl font-bold text-on-surface">PAIRING MATRIX</h3>
+<p class="font-label text-xs text-outline uppercase tracking-widest mt-1">Full Tactical Overview • Estimates Scale 0-20</p>
+</div>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 text-[10px] font-bold uppercase bg-surface p-1 px-2 border border-outline-variant/30"><span class="w-2 h-2 bg-error"></span> Critical</span>
+<span class="flex items-center gap-1 text-[10px] font-bold uppercase bg-surface p-1 px-2 border border-outline-variant/30"><span class="w-2 h-2 bg-[#006400]"></span> Dominant</span>
+</div>
+</div>
+<div class="flex-1 grid grid-cols-6 grid-rows-6 gap-1 bg-outline-variant/10 p-1">
+<!-- Top Empty Corner -->
+<div class="bg-surface-dim"></div>
+<!-- Opponent Column Headers -->
+<div class="bg-surface-container-high flex items-center justify-center p-2">
+<div class="text-center">
+<p class="font-label text-[10px] text-outline uppercase leading-none mb-1">OPP 01</p>
+<p class="font-headline font-bold text-xs text-on-surface">ELDRITCH</p>
+</div>
+</div>
+<div class="bg-surface-container-high flex items-center justify-center p-2">
+<div class="text-center">
+<p class="font-label text-[10px] text-outline uppercase leading-none mb-1">OPP 02</p>
+<p class="font-headline font-bold text-xs text-on-surface">TITAN</p>
+</div>
+</div>
+<div class="bg-surface-container-high flex items-center justify-center p-2">
+<div class="text-center">
+<p class="font-label text-[10px] text-outline uppercase leading-none mb-1">OPP 03</p>
+<p class="font-headline font-bold text-xs text-on-surface">SHADOW</p>
+</div>
+</div>
+<div class="bg-surface-container-high flex items-center justify-center p-2">
+<div class="text-center">
+<p class="font-label text-[10px] text-outline uppercase leading-none mb-1">OPP 04</p>
+<p class="font-headline font-bold text-xs text-on-surface">HUNTER</p>
+</div>
+</div>
+<div class="bg-surface-container-high flex items-center justify-center p-2">
+<div class="text-center">
+<p class="font-label text-[10px] text-outline uppercase leading-none mb-1">OPP 05</p>
+<p class="font-headline font-bold text-xs text-on-surface">SENTINEL</p>
+</div>
+</div>
+<!-- Row 1 -->
+<div class="bg-surface-container-high flex items-center p-3">
+<p class="font-headline font-bold text-xs text-on-surface">COMMANDER A</p>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">10</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">18</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">4</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">11</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">15</span>
+</div>
+<!-- Row 2 -->
+<div class="bg-surface-container-high flex items-center p-3">
+<p class="font-headline font-bold text-xs text-on-surface">VOX POPULI</p>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">6</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">10</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">20</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">2</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">12</span>
+</div>
+<!-- Row 3 -->
+<div class="bg-surface-container-high flex items-center p-3">
+<p class="font-headline font-bold text-xs text-on-surface">IRON WILL</p>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">14</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">8</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">10</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">16</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">5</span>
+</div>
+<!-- Row 4 -->
+<div class="bg-surface-container-high flex items-center p-3">
+<p class="font-headline font-bold text-xs text-on-surface">GHOST OPERATOR</p>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">9</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">19</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">7</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">10</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">13</span>
+</div>
+<!-- Row 5 -->
+<div class="bg-surface-container-high flex items-center p-3">
+<p class="font-headline font-bold text-xs text-on-surface">RAPTOR 7</p>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">3</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">11</span>
+</div>
+<div class="bg-[#006400]/40 hover:bg-[#006400]/60 transition-colors cursor-pointer border border-[#006400]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">17</span>
+</div>
+<div class="bg-[#FF4D4D]/40 hover:bg-[#FF4D4D]/60 transition-colors cursor-pointer border border-[#FF4D4D]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">8</span>
+</div>
+<div class="bg-[#800080]/30 hover:bg-[#800080]/50 transition-colors cursor-pointer border border-[#800080]/50 flex items-center justify-center">
+<span class="font-headline font-bold text-xl text-white">10</span>
+</div>
+</div>
+</section>
+<!-- RIGHT SIDE: Wizard Panel -->
+<section class="w-[450px] h-full bg-surface-container-high flex flex-col shadow-2xl z-10 border-l border-outline-variant/20">
+<div class="p-8 pb-4">
+<p class="font-label text-[10px] text-secondary tracking-[0.3em] font-bold uppercase mb-2">PAIRING SIMULATOR</p>
+<h1 class="font-headline text-3xl font-bold text-on-surface leading-none">STEP 1: DEFENDER SELECTION</h1>
+<div class="mt-4 flex gap-1 h-1">
+<div class="flex-1 bg-secondary"></div>
+<div class="flex-1 bg-surface-container-highest"></div>
+<div class="flex-1 bg-surface-container-highest"></div>
+</div>
+</div>
+<div class="flex-1 overflow-y-auto px-8 py-4 space-y-8">
+<!-- Section 1: OUR DEFENDER -->
+<div class="space-y-4">
+<div class="flex justify-between items-center border-b border-outline-variant/30 pb-2">
+<h4 class="font-headline text-sm font-bold text-on-surface tracking-widest uppercase">OUR DEFENDER</h4>
+<span class="font-label text-[10px] text-outline uppercase tracking-widest">Select One to Push</span>
+</div>
+<div class="space-y-2">
+<!-- Player Row - Selected State -->
+<div class="group bg-secondary text-on-secondary p-4 flex items-center justify-between cursor-pointer ring-1 ring-secondary ring-offset-4 ring-offset-surface-container-high transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-lg" style="font-variation-settings: 'FILL' 1;">shield</span>
+<div>
+<p class="font-headline font-bold text-sm tracking-tight leading-none">COMMANDER A</p>
+<p class="font-label text-[10px] uppercase mt-1 opacity-80">Primary Vanguard</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-lg">11.6</p>
+<p class="font-label text-[8px] uppercase tracking-tighter opacity-80">AVG ESTIMATE</p>
+</div>
+</div>
+<!-- Player Row - Default State -->
+<div class="group bg-surface-container hover:bg-surface-container-highest p-4 flex items-center justify-between cursor-pointer border border-transparent transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-lg text-outline" data-icon="shield">shield</span>
+<div>
+<p class="font-headline font-bold text-sm tracking-tight leading-none text-on-surface">VOX POPULI</p>
+<p class="font-label text-[10px] uppercase mt-1 text-outline">Utility Specialist</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-lg text-on-surface">10.0</p>
+<p class="font-label text-[8px] uppercase tracking-tighter text-outline">AVG ESTIMATE</p>
+</div>
+</div>
+<div class="group bg-surface-container hover:bg-surface-container-highest p-4 flex items-center justify-between cursor-pointer border border-transparent transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-lg text-outline" data-icon="shield">shield</span>
+<div>
+<p class="font-headline font-bold text-sm tracking-tight leading-none text-on-surface">IRON WILL</p>
+<p class="font-label text-[10px] uppercase mt-1 text-outline">Static Defense</p>
+</div>
+</div>
+<div class="text-right">
+<p class="font-headline font-bold text-lg text-on-surface">10.8</p>
+<p class="font-label text-[8px] uppercase tracking-tighter text-outline">AVG ESTIMATE</p>
+</div>
+</div>
+<div class="group bg-surface-container hover:bg-surface-container-highest p-4 flex items-center justify-between cursor-pointer border border-transparent transition-all">
+<div class="flex items-center gap-3">
+<span class="material-symbols-outlined text-lg text-outline" data-icon="shield">shield</span>
+<div>
+<p class="font-headline font-bold text-sm tracking-tight leading-none text-on-surface text-opacity-50 line-through">GHOST OPERATOR</p>
+<p class="font-label text-[10px] uppercase mt-1 text-error">ALREADY ASSIGNED</p>
+</div>
+</div>
+<div class="text-right opacity-30">
+<p class="font-headline font-bold text-lg">11.6</p>
+<p class="font-label text-[8px] uppercase tracking-tighter">AVG ESTIMATE</p>
+</div>
+</div>
+</div>
+</div>
+<!-- Section 2: THEIR DEFENDER -->
+<div class="space-y-4">
+<div class="flex justify-between items-center border-b border-outline-variant/30 pb-2">
+<h4 class="font-headline text-sm font-bold text-on-surface tracking-widest uppercase">THEIR DEFENDER</h4>
+<span class="font-label text-[10px] text-outline uppercase tracking-widest">Select Target</span>
+</div>
+<div class="grid grid-cols-2 gap-2">
+<button class="bg-surface-container p-4 text-left border-l-2 border-secondary hover:bg-surface-container-highest transition-colors">
+<p class="font-label text-[10px] text-outline uppercase">OPP 01</p>
+<p class="font-headline font-bold text-sm text-on-surface mt-1">ELDRITCH</p>
+</button>
+<button class="bg-surface-container p-4 text-left border-l-2 border-transparent hover:border-outline hover:bg-surface-container-highest transition-colors">
+<p class="font-label text-[10px] text-outline uppercase">OPP 02</p>
+<p class="font-headline font-bold text-sm text-on-surface mt-1">TITAN</p>
+</button>
+<button class="bg-surface-container p-4 text-left border-l-2 border-transparent hover:border-outline hover:bg-surface-container-highest transition-colors">
+<p class="font-label text-[10px] text-outline uppercase">OPP 03</p>
+<p class="font-headline font-bold text-sm text-on-surface mt-1">SHADOW</p>
+</button>
+<button class="bg-surface-container p-4 text-left border-l-2 border-transparent hover:border-outline hover:bg-surface-container-highest transition-colors">
+<p class="font-label text-[10px] text-outline uppercase">OPP 04</p>
+<p class="font-headline font-bold text-sm text-on-surface mt-1">HUNTER</p>
+</button>
+</div>
+</div>
+</div>
+<!-- Primary Action Footer -->
+<div class="p-8 pt-4 bg-surface-container-highest/50 backdrop-blur-sm border-t border-outline-variant/30">
+<div class="flex gap-4 mb-6">
+<div class="flex-1 bg-surface-container p-3 flex flex-col items-center justify-center">
+<p class="font-label text-[9px] text-outline uppercase leading-none">PROJECTED SCORE</p>
+<p class="font-headline font-bold text-xl text-on-surface">10-10</p>
+</div>
+<div class="flex-1 bg-surface-container p-3 flex flex-col items-center justify-center">
+<p class="font-label text-[9px] text-outline uppercase leading-none">RISK FACTOR</p>
+<p class="font-headline font-bold text-xl text-secondary">LOW</p>
+</div>
+</div>
+<button class="w-full bg-secondary hover:bg-secondary-dim text-on-secondary py-4 font-headline font-extrabold text-sm tracking-widest uppercase transition-all flex items-center justify-center gap-3 active:scale-95">
+                    PROCEED TO ATTACKERS
+                    <span class="material-symbols-outlined font-bold">arrow_forward</span>
+</button>
+</div>
+</section>
+</main>
+<!-- Floating Action Background Image Decorative -->
+<div class="fixed bottom-0 right-0 p-4 opacity-5 pointer-events-none z-0">
+<img class="w-[600px] h-auto grayscale invert" data-alt="Technical schematic architectural drawing of a futuristic command center console with glowing line art and wireframes" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDDUgPMo0pJsEWUZ6AB_PZO4nJPUXwexfwsTdRP4yp8YiwCH1aodtOtj8OECVzPcGXUFayePYpiLZwNnJM9ME7WbVgz_UqfnLpgtwge3yND7BPxyovQgCGxXvjck63_qlV7Buoa8iZs436IMcWt9wMo53Uv38o-hZ3Utj5F52yo_m2fg6znuITg_ChbWVd-HLFOxttIero6X6PpkGONBLiw6Nc0STvnsoPLMKFRJsJmLiHY2TQomiIjwV54C-oRjnjXolFQKQPIAZLK"/>
+</div>
+</body></html>

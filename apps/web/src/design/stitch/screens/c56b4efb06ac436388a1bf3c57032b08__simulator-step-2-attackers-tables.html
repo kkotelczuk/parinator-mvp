@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "error": "#ee7d77",
+                        "on-tertiary-container": "#594a00",
+                        "on-error": "#490106",
+                        "surface-variant": "#252626",
+                        "on-error-container": "#ff9993",
+                        "background": "#0e0e0e",
+                        "secondary-fixed-dim": "#2af381",
+                        "surface-container-highest": "#252626",
+                        "on-secondary-fixed-variant": "#006a33",
+                        "surface-tint": "#bbc8d0",
+                        "tertiary": "#ffe483",
+                        "tertiary-dim": "#edc600",
+                        "on-primary-fixed": "#354147",
+                        "surface-container": "#191a1a",
+                        "on-tertiary-fixed-variant": "#645300",
+                        "on-secondary-container": "#00dc70",
+                        "surface-bright": "#2b2c2c",
+                        "secondary-dim": "#00da70",
+                        "primary-fixed": "#d7e4ec",
+                        "on-tertiary": "#635200",
+                        "primary-dim": "#aebbc2",
+                        "surface-container-high": "#1f2020",
+                        "on-background": "#e7e5e5",
+                        "on-secondary-fixed": "#004a21",
+                        "inverse-on-surface": "#565555",
+                        "on-primary-fixed-variant": "#515d64",
+                        "surface-container-lowest": "#000000",
+                        "on-primary": "#364248",
+                        "inverse-surface": "#fcf9f8",
+                        "secondary-fixed": "#62ff96",
+                        "secondary": "#13ea79",
+                        "outline": "#767575",
+                        "surface": "#0e0e0e",
+                        "primary-container": "#3c494f",
+                        "tertiary-fixed": "#fdd400",
+                        "on-primary-container": "#c5d2da",
+                        "on-tertiary-fixed": "#433700",
+                        "error-dim": "#bb5551",
+                        "on-secondary": "#004f24",
+                        "inverse-primary": "#546167",
+                        "error-container": "#7f2927",
+                        "surface-container-low": "#131313",
+                        "on-surface-variant": "#acabaa",
+                        "tertiary-fixed-dim": "#edc600",
+                        "primary": "#bbc8d0",
+                        "surface-dim": "#0e0e0e",
+                        "outline-variant": "#484848",
+                        "on-surface": "#e7e5e5",
+                        "primary-fixed-dim": "#c9d6de",
+                        "secondary-container": "#00451f",
+                        "tertiary-container": "#fdd400"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0px",
+                        "lg": "0px",
+                        "xl": "0px",
+                        "full": "9999px"
+                    },
+                    "fontFamily": {
+                        "headline": ["Space Grotesk"],
+                        "body": ["Inter"],
+                        "label": ["Inter"]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        .wtc-score-green { color: #006400; }
+        .wtc-score-red { color: #FF4D4D; }
+        .wtc-score-purple { color: #800080; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: #0e0e0e; }
+        ::-webkit-scrollbar-thumb { background: #3c494f; }
+    </style>
+</head>
+<body class="bg-background text-on-background font-body select-none">
+<!-- TopNavBar -->
+<header class="fixed top-0 w-full z-50 flex justify-between items-center px-6 h-14 bg-[#0e0e0e]">
+<div class="flex items-center gap-8">
+<span class="text-xl font-bold tracking-tighter text-[#bbc8d0] font-headline">WTC COMMAND CENTER</span>
+<nav class="hidden md:flex gap-6 items-center">
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">LIVE FEED</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">LIVE RANKINGS</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#bbc8d0] border-b-2 border-[#bbc8d0] pb-1" href="#">PAIRINGS</a>
+<a class="font-['Space_Grotesk'] tracking-tight text-sm uppercase text-[#3c494f] hover:bg-[#252626] transition-colors px-2 py-1" href="#">ADMIN</a>
+</nav>
+</div>
+<div class="flex items-center gap-4">
+<button class="material-symbols-outlined text-[#bbc8d0] p-2 hover:bg-[#252626] transition-colors">notifications</button>
+<button class="material-symbols-outlined text-[#bbc8d0] p-2 hover:bg-[#252626] transition-colors">settings</button>
+<button class="bg-primary text-on-primary px-4 py-1 font-headline font-bold text-xs uppercase tracking-widest hover:bg-primary-dim transition-colors">END ROUND</button>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="fixed left-0 top-14 h-[calc(100vh-3.5rem)] w-64 flex flex-col py-4 bg-[#0e0e0e] z-40 border-r border-surface-container">
+<div class="px-6 mb-8">
+<div class="flex flex-col gap-1">
+<span class="font-headline font-bold text-primary tracking-tight">TOURNAMENT ALPHA</span>
+<span class="font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-outline">ROUND 4/6</span>
+</div>
+</div>
+<nav class="flex-1">
+<ul class="flex flex-col">
+<li class="group">
+<a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">grid_view</span>
+<span>DASHBOARD</span>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">groups</span>
+<span>ROSTERS</span>
+</a>
+</li>
+<li class="group active">
+<a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] bg-[#252626] text-[#bbc8d0] border-l-4 border-[#bbc8d0] translate-x-1 duration-150" href="#">
+<span class="material-symbols-outlined">swords</span>
+<span>MATCHUPS</span>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">inventory_2</span>
+<span>LOGISTICS</span>
+</a>
+</li>
+<li class="group">
+<a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">history</span>
+<span>HISTORY</span>
+</a>
+</li>
+</ul>
+</nav>
+<div class="px-4 mb-4">
+<button class="w-full bg-secondary text-on-secondary py-3 font-headline font-bold text-xs tracking-widest uppercase flex items-center justify-center gap-2 hover:bg-secondary-dim transition-all">
+<span class="material-symbols-outlined text-sm">add</span>
+                NEW PAIRING
+            </button>
+</div>
+<footer class="border-t border-surface-container pt-4">
+<ul class="flex flex-col">
+<li><a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">help</span>
+<span>SUPPORT</span>
+</a></li>
+<li><a class="flex items-center gap-4 px-6 py-3 font-['Inter'] font-semibold tracking-widest uppercase text-[10px] text-[#3c494f] opacity-80 hover:bg-[#191a1a] transition-all" href="#">
+<span class="material-symbols-outlined">logout</span>
+<span>LOGOUT</span>
+</a></li>
+</ul>
+</footer>
+</aside>
+<!-- Main Content Area -->
+<main class="ml-64 pt-14 h-screen flex overflow-hidden">
+<!-- Left Side: Main Pairing Matrix -->
+<section class="flex-1 p-6 overflow-y-auto bg-surface">
+<div class="mb-6 flex justify-between items-end">
+<div>
+<h1 class="text-3xl font-headline font-bold tracking-tight text-on-surface">TEAM BATTLE: ALPHA vs OMEGA</h1>
+<p class="text-xs font-label uppercase tracking-widest text-outline mt-1">SIMULATION ENGINE ACTIVE // MATRIX VIEW</p>
+</div>
+<div class="flex gap-2">
+<div class="bg-surface-container px-3 py-1 flex flex-col items-end">
+<span class="text-[10px] font-label text-outline">EST. SCORE</span>
+<span class="font-headline font-bold text-xl text-secondary">92 - 68</span>
+</div>
+</div>
+</div>
+<!-- Pairing Matrix Table -->
+<div class="bg-surface-container shadow-none overflow-hidden">
+<div class="grid grid-cols-6 bg-surface-bright p-3 border-b border-surface-container-highest">
+<div class="col-span-1 text-[10px] font-label font-bold text-outline uppercase tracking-wider">Our Defenders</div>
+<div class="col-span-5 grid grid-cols-5 gap-1">
+<div class="text-[10px] text-center font-label font-bold text-outline uppercase tracking-wider">Aeldari</div>
+<div class="text-[10px] text-center font-label font-bold text-outline uppercase tracking-wider">Custodes</div>
+<div class="text-[10px] text-center font-label font-bold text-outline uppercase tracking-wider">Tau</div>
+<div class="text-[10px] text-center font-label font-bold text-outline uppercase tracking-wider">Necrons</div>
+<div class="text-[10px] text-center font-label font-bold text-outline uppercase tracking-wider">Chaos</div>
+</div>
+</div>
+<!-- Row 1 (Selected Our Defender) -->
+<div class="grid grid-cols-6 border-b border-surface-container-high bg-surface-container-highest">
+<div class="col-span-1 p-3 flex flex-col justify-center border-r border-primary/20 bg-primary/10">
+<span class="font-headline font-bold text-sm text-primary">BLOOD ANGELS</span>
+<span class="text-[10px] font-label text-outline italic">Selected Defender</span>
+</div>
+<div class="col-span-5 grid grid-cols-5 gap-1 p-1">
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-red">8</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-purple">12</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-green">15</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-secondary">20</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-red">5</div>
+</div>
+</div>
+<!-- Row 2 -->
+<div class="grid grid-cols-6 border-b border-surface-container-high hover:bg-surface-container-low transition-colors">
+<div class="col-span-1 p-3 border-r border-surface-container-high">
+<span class="font-headline font-bold text-sm">WORLD EATERS</span>
+</div>
+<div class="col-span-5 grid grid-cols-5 gap-1 p-1">
+<div class="p-2 text-center font-headline font-bold text-wtc-score-purple opacity-50">10</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-green opacity-50">14</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-red opacity-50">7</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-purple opacity-50">11</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-green opacity-50">16</div>
+</div>
+</div>
+<!-- Row 3 (Inactive Matrix Placeholder) -->
+<div class="grid grid-cols-6 border-b border-surface-container-high hover:bg-surface-container-low transition-colors">
+<div class="col-span-1 p-3 border-r border-surface-container-high">
+<span class="font-headline font-bold text-sm">ORKS</span>
+</div>
+<div class="col-span-5 grid grid-cols-5 gap-1 p-1">
+<div class="p-2 text-center font-headline font-bold text-wtc-score-red opacity-50">4</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-purple opacity-50">9</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-green opacity-50">18</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-red opacity-50">6</div>
+<div class="p-2 text-center font-headline font-bold text-wtc-score-purple opacity-50">10</div>
+</div>
+</div>
+<!-- Row 4 (Their Selected Defender) -->
+<div class="grid grid-cols-6 border-b border-surface-container-high bg-surface-container-highest">
+<div class="col-span-1 p-3 flex flex-col justify-center border-r border-tertiary/20 bg-tertiary/10">
+<span class="font-headline font-bold text-sm text-tertiary">AELDARI (OPP)</span>
+<span class="text-[10px] font-label text-outline italic">Their Defender</span>
+</div>
+<div class="col-span-5 grid grid-cols-5 gap-1 p-1">
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-green">14</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-red">6</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-purple">10</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-green">17</div>
+<div class="bg-surface p-2 text-center font-headline font-bold text-wtc-score-red">3</div>
+</div>
+</div>
+</div>
+<!-- Note about returning attackers -->
+<div class="mt-8 flex items-center gap-3 p-4 bg-surface-container-low border-l-4 border-outline text-outline">
+<span class="material-symbols-outlined">info</span>
+<p class="text-xs font-label uppercase tracking-wider">Unselected attackers will return to the active pool for the final round assignment.</p>
+</div>
+</section>
+<!-- Right Side: Wizard Panel -->
+<section class="w-[480px] bg-surface-container border-l border-surface-container-highest flex flex-col">
+<div class="p-6 border-b border-surface-container-highest flex justify-between items-center bg-surface-bright">
+<div>
+<h2 class="text-xl font-headline font-extrabold tracking-tighter">STEP 2: ATTACKERS &amp; TABLES</h2>
+<p class="text-[10px] font-label tracking-widest text-outline uppercase">Finalizing Combat Manoeuvres</p>
+</div>
+<div class="w-10 h-10 flex items-center justify-center border-2 border-primary text-primary font-headline font-bold">02</div>
+</div>
+<div class="flex-1 overflow-y-auto p-6 space-y-8">
+<!-- Section 1: OUR ATTACKERS -->
+<div>
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-xs font-headline font-bold uppercase tracking-[0.2em] text-secondary">01. OUR ATTACKERS</h3>
+<span class="text-[10px] font-label text-outline">SELECT 2 VS THEIR AELDARI</span>
+</div>
+<div class="grid grid-cols-1 gap-2">
+<div class="group flex items-center justify-between p-3 bg-surface-container-highest border border-secondary/40 cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-secondary"></div>
+<div>
+<span class="block text-xs font-headline font-bold">ULTRAMARINES</span>
+<span class="text-[10px] text-secondary font-label">WTC PREDICTED: 14</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary" data-weight="fill">check_circle</span>
+</div>
+<div class="group flex items-center justify-between p-3 bg-surface-container-highest border border-secondary/40 cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-secondary"></div>
+<div>
+<span class="block text-xs font-headline font-bold">IMPERIAL KNIGHTS</span>
+<span class="text-[10px] text-secondary font-label">WTC PREDICTED: 17</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-secondary" data-weight="fill">check_circle</span>
+</div>
+<div class="group flex items-center justify-between p-3 bg-surface-container hover:bg-surface-bright border border-surface-container-highest cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-outline opacity-30"></div>
+<div>
+<span class="block text-xs font-headline font-bold text-outline">DEATH GUARD</span>
+<span class="text-[10px] text-outline font-label">WTC PREDICTED: 06</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-outline">radio_button_unchecked</span>
+</div>
+</div>
+</div>
+<!-- Section 2: THEIR ATTACKERS -->
+<div>
+<div class="flex justify-between items-center mb-4">
+<h3 class="text-xs font-headline font-bold uppercase tracking-[0.2em] text-tertiary">02. THEIR ATTACKERS</h3>
+<span class="text-[10px] font-label text-outline">SELECT 2 VS OUR BLOOD ANGELS</span>
+</div>
+<div class="grid grid-cols-1 gap-2">
+<div class="group flex items-center justify-between p-3 bg-surface-container-highest border border-tertiary cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-tertiary"></div>
+<div>
+<span class="block text-xs font-headline font-bold">NECRONS (OPP)</span>
+<span class="text-[10px] text-tertiary font-label">THREAT LEVEL: HIGH</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-tertiary" data-weight="fill">check_circle</span>
+</div>
+<div class="group flex items-center justify-between p-3 bg-surface-container-highest border border-tertiary cursor-pointer">
+<div class="flex items-center gap-3">
+<div class="w-2 h-8 bg-tertiary"></div>
+<div>
+<span class="block text-xs font-headline font-bold">TAU EMPIRE (OPP)</span>
+<span class="text-[10px] text-tertiary font-label">THREAT LEVEL: MEDIUM</span>
+</div>
+</div>
+<span class="material-symbols-outlined text-tertiary" data-weight="fill">check_circle</span>
+</div>
+</div>
+</div>
+<!-- Section 3: PAIRING & TABLE -->
+<div>
+<h3 class="text-xs font-headline font-bold uppercase tracking-[0.2em] text-primary mb-4">03. PAIRING &amp; TABLE ASSIGNMENT</h3>
+<!-- Table Slot 1 -->
+<div class="bg-surface p-4 border border-surface-container-highest mb-3">
+<div class="flex justify-between items-center mb-3">
+<span class="text-[10px] font-label text-outline uppercase tracking-tighter">MATCHUP ALPHA</span>
+<span class="bg-surface-container-highest px-2 py-0.5 text-[10px] font-headline font-bold">TABLE #04</span>
+</div>
+<div class="flex items-center justify-between gap-4 mb-4">
+<div class="flex-1 text-left">
+<span class="block text-xs font-headline font-bold">ULTRAMARINES</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">swords</span>
+</div>
+<div class="flex-1 text-right">
+<span class="block text-xs font-headline font-bold">AELDARI (OPP)</span>
+</div>
+</div>
+<div class="flex gap-1 justify-center">
+<button class="flex-1 flex flex-col items-center py-2 bg-secondary/10 border border-secondary text-secondary">
+<span class="material-symbols-outlined text-lg">thumb_up</span>
+<span class="text-[8px] font-bold">PREF</span>
+</button>
+<button class="flex-1 flex flex-col items-center py-2 bg-surface-container-highest border border-transparent text-outline hover:border-outline">
+<span class="material-symbols-outlined text-lg">horizontal_rule</span>
+<span class="text-[8px] font-bold">NEUTRAL</span>
+</button>
+<button class="flex-1 flex flex-col items-center py-2 bg-surface-container-highest border border-transparent text-outline hover:border-outline">
+<span class="material-symbols-outlined text-lg">thumb_down</span>
+<span class="text-[8px] font-bold">NON-PREF</span>
+</button>
+</div>
+</div>
+<!-- Table Slot 2 -->
+<div class="bg-surface p-4 border border-surface-container-highest">
+<div class="flex justify-between items-center mb-3">
+<span class="text-[10px] font-label text-outline uppercase tracking-tighter">MATCHUP BETA</span>
+<span class="bg-surface-container-highest px-2 py-0.5 text-[10px] font-headline font-bold">TABLE #07</span>
+</div>
+<div class="flex items-center justify-between gap-4 mb-4">
+<div class="flex-1 text-left">
+<span class="block text-xs font-headline font-bold">BLOOD ANGELS</span>
+</div>
+<div class="flex items-center gap-1">
+<span class="material-symbols-outlined text-sm">swords</span>
+</div>
+<div class="flex-1 text-right">
+<span class="block text-xs font-headline font-bold">NECRONS (OPP)</span>
+</div>
+</div>
+<div class="flex gap-1 justify-center">
+<button class="flex-1 flex flex-col items-center py-2 bg-surface-container-highest border border-transparent text-outline hover:border-outline">
+<span class="material-symbols-outlined text-lg">thumb_up</span>
+<span class="text-[8px] font-bold">PREF</span>
+</button>
+<button class="flex-1 flex flex-col items-center py-2 bg-surface-container-highest border border-outline text-on-surface">
+<span class="material-symbols-outlined text-lg">horizontal_rule</span>
+<span class="text-[8px] font-bold">NEUTRAL</span>
+</button>
+<button class="flex-1 flex flex-col items-center py-2 bg-surface-container-highest border border-transparent text-outline hover:border-outline">
+<span class="material-symbols-outlined text-lg">thumb_down</span>
+<span class="text-[8px] font-bold">NON-PREF</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- Action Area -->
+<div class="p-6 bg-surface-bright border-t border-surface-container-highest">
+<button class="w-full bg-primary text-on-primary py-4 font-headline font-extrabold text-sm tracking-[0.2em] uppercase flex items-center justify-center gap-3 hover:scale-[1.02] active:scale-[0.98] transition-all">
+                    CONFIRM PAIRINGS
+                    <span class="material-symbols-outlined">send</span>
+</button>
+</div>
+</section>
+</main>
+</body></html>

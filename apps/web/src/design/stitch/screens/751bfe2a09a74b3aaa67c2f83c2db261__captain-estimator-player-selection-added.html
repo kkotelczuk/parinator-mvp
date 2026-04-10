@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Parinator - S13 Estimator Tile View</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "surface-variant": "#252626",
+                    "on-primary-container": "#c5d2da",
+                    "on-tertiary-container": "#594a00",
+                    "error-dim": "#bb5551",
+                    "surface-dim": "#0e0e0e",
+                    "error-container": "#7f2927",
+                    "on-secondary-fixed": "#004a21",
+                    "on-secondary-container": "#00dc70",
+                    "surface-container-lowest": "#000000",
+                    "surface-container-high": "#1f2020",
+                    "on-primary-fixed-variant": "#515d64",
+                    "on-surface-variant": "#acabaa",
+                    "on-secondary": "#004f24",
+                    "tertiary": "#ffe483",
+                    "inverse-surface": "#fcf9f8",
+                    "inverse-on-surface": "#565555",
+                    "on-error": "#490106",
+                    "on-background": "#e7e5e5",
+                    "on-tertiary": "#635200",
+                    "outline-variant": "#484848",
+                    "error": "#ee7d77",
+                    "outline": "#767575",
+                    "secondary-dim": "#00da70",
+                    "surface-container": "#191a1a",
+                    "secondary-fixed-dim": "#2af381",
+                    "primary-container": "#3c494f",
+                    "secondary": "#13ea79",
+                    "on-tertiary-fixed-variant": "#645300",
+                    "on-secondary-fixed-variant": "#006a33",
+                    "tertiary-fixed-dim": "#edc600",
+                    "surface-container-low": "#131313",
+                    "on-primary-fixed": "#354147",
+                    "on-tertiary-fixed": "#433700",
+                    "on-surface": "#e7e5e5",
+                    "primary-dim": "#aebbc2",
+                    "inverse-primary": "#546167",
+                    "surface-container-highest": "#252626",
+                    "primary-fixed": "#d7e4ec",
+                    "primary-fixed-dim": "#c9d6de",
+                    "primary": "#bbc8d0",
+                    "surface-tint": "#bbc8d0",
+                    "tertiary-fixed": "#fdd400",
+                    "tertiary-container": "#fdd400",
+                    "secondary-fixed": "#62ff96",
+                    "surface-bright": "#2b2c2c",
+                    "surface": "#0e0e0e",
+                    "on-primary": "#364248",
+                    "background": "#0e0e0e",
+                    "secondary-container": "#00451f",
+                    "on-error-container": "#ff9993",
+                    "tertiary-dim": "#edc600"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0rem",
+                    "lg": "0rem",
+                    "xl": "0rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body { font-family: 'Inter', sans-serif; }
+        h1, h2, h3 { font-family: 'Space Grotesk', sans-serif; }
+        .wtc-gradient {
+            background: linear-gradient(45deg, #bbc8d0, #3c494f);
+        }
+    </style>
+</head>
+<body class="bg-surface text-on-surface selection:bg-secondary selection:text-surface-container-lowest">
+<!-- TopNavBar -->
+<header class="bg-[#0e0e0e] text-[#bbc8d0] font-['Space_Grotesk'] tracking-tight flex justify-between items-center w-full px-6 py-3 fixed top-0 z-50">
+<div class="text-xl font-bold tracking-tighter text-[#bbc8d0] uppercase">Parinator</div>
+<nav class="hidden md:flex gap-8">
+<a class="text-[#bbc8d0] border-b-2 border-[#bbc8d0] pb-1" href="#">Tournaments</a>
+<a class="text-[#3c494f] hover:bg-[#252626] transition-colors" href="#">Reports</a>
+<a class="text-[#3c494f] hover:bg-[#252626] transition-colors" href="#">Admin</a>
+</nav>
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-secondary"></span>
+<span class="text-xs font-label uppercase tracking-widest text-on-surface-variant">Online</span>
+</div>
+<div class="material-symbols-outlined text-[#bbc8d0]">account_circle</div>
+</div>
+</header>
+<!-- SideNavBar -->
+<aside class="bg-[#0e0e0e] text-[#bbc8d0] font-['Space_Grotesk'] uppercase text-xs tracking-widest fixed left-0 top-0 h-full hidden lg:flex flex-col border-r border-[#252626] w-64 z-40 pt-16">
+<div class="p-6 border-b border-[#252626]">
+<div class="text-lg font-black text-[#bbc8d0]">Parinator</div>
+<div class="text-[10px] text-on-surface-variant tracking-[0.2em] mt-1">WTC 2024 Command</div>
+</div>
+<nav class="flex-1 py-4">
+<a class="flex items-center gap-3 px-6 py-4 bg-[#252626] text-[#13ea79] font-bold transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="grid_view">grid_view</span>
+            Pairings
+        </a>
+<a class="flex items-center gap-3 px-6 py-4 text-[#3c494f] hover:bg-[#191a1a] transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="leaderboard">leaderboard</span>
+            Standings
+        </a>
+<a class="flex items-center gap-3 px-6 py-4 text-[#3c494f] hover:bg-[#191a1a] transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="group">group</span>
+            Players
+        </a>
+<a class="flex items-center gap-3 px-6 py-4 text-[#3c494f] hover:bg-[#191a1a] transition-all duration-200" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+            Settings
+        </a>
+</nav>
+<div class="p-6 bg-surface-container flex items-center gap-3">
+<div class="w-10 h-10 bg-primary-container flex items-center justify-center">
+<span class="material-symbols-outlined text-primary" data-icon="shield">shield</span>
+</div>
+<div>
+<div class="font-bold text-on-surface">Tournament Admin</div>
+<div class="text-[9px] text-on-surface-variant">SUPERUSER ACCESS</div>
+</div>
+</div>
+</aside>
+<!-- Main Canvas -->
+<main class="lg:pl-64 pt-16 pb-20 md:pb-0 min-h-screen">
+<div class="p-6 max-w-7xl mx-auto">
+<!-- Context Header -->
+<div class="mb-8 flex flex-col md:flex-row md:items-end justify-between gap-4">
+<div>
+<span class="label-sm bg-tertiary-container text-on-tertiary-container px-2 py-0.5 text-[10px] font-bold uppercase tracking-widest mb-2 inline-block">Estimator Mode: S13</span>
+<h1 class="text-4xl font-black uppercase tracking-tighter text-on-surface">Captain's Tactical Console</h1>
+<p class="text-on-surface-variant font-body mt-2">WTC 2024 / Round 4 / Match 12.A</p>
+</div>
+<div class="flex gap-2">
+<button class="bg-surface-container-highest px-4 py-3 text-xs font-bold uppercase border border-outline-variant/15 hover:bg-surface-bright transition-colors">
+                    Reshuffle Layout
+                </button>
+<button class="bg-secondary text-on-secondary px-6 py-3 text-xs font-bold uppercase hover:bg-secondary-dim transition-colors">
+                    Confirm Estimates
+                </button>
+</div>
+</div>
+<!-- Player Selection Section -->
+<div class="mb-8">
+<div class="flex items-center gap-2 mb-4">
+<span class="material-symbols-outlined text-on-surface-variant text-sm" data-icon="person_search">person_search</span>
+<h2 class="text-xs font-bold uppercase tracking-[0.2em] text-on-surface-variant">Active Strategist Selection</h2>
+</div>
+<div class="grid grid-cols-2 md:grid-cols-5 gap-3">
+<!-- Selected Player -->
+<button class="group flex flex-col items-center bg-surface-container-highest border-2 border-secondary p-4 transition-all hover:bg-surface-bright">
+<div class="w-12 h-12 bg-secondary text-on-secondary flex items-center justify-center font-black text-xl mb-3">JP</div>
+<div class="text-[10px] font-headline font-black uppercase tracking-tighter text-secondary">Jean-Luc P.</div>
+<div class="mt-1 text-[8px] font-label font-bold text-secondary uppercase tracking-[0.1em]">Selected</div>
+</button>
+<button class="group flex flex-col items-center bg-surface-container border-2 border-transparent p-4 transition-all hover:border-outline-variant/30 hover:bg-surface-container-high">
+<div class="w-12 h-12 bg-surface-container-highest text-on-surface-variant group-hover:text-on-surface flex items-center justify-center font-black text-xl mb-3">MA</div>
+<div class="text-[10px] font-headline font-black uppercase tracking-tighter text-on-surface-variant group-hover:text-on-surface">Marc A.</div>
+<div class="mt-1 text-[8px] font-label font-bold text-on-surface-variant/40 uppercase tracking-[0.1em]">Standby</div>
+</button>
+<button class="group flex flex-col items-center bg-surface-container border-2 border-transparent p-4 transition-all hover:border-outline-variant/30 hover:bg-surface-container-high">
+<div class="w-12 h-12 bg-surface-container-highest text-on-surface-variant group-hover:text-on-surface flex items-center justify-center font-black text-xl mb-3">SV</div>
+<div class="text-[10px] font-headline font-black uppercase tracking-tighter text-on-surface-variant group-hover:text-on-surface">Sophie V.</div>
+<div class="mt-1 text-[8px] font-label font-bold text-on-surface-variant/40 uppercase tracking-[0.1em]">Standby</div>
+</button>
+<button class="group flex flex-col items-center bg-surface-container border-2 border-transparent p-4 transition-all hover:border-outline-variant/30 hover:bg-surface-container-high">
+<div class="w-12 h-12 bg-surface-container-highest text-on-surface-variant group-hover:text-on-surface flex items-center justify-center font-black text-xl mb-3">LG</div>
+<div class="text-[10px] font-headline font-black uppercase tracking-tighter text-on-surface-variant group-hover:text-on-surface">Lucas G.</div>
+<div class="mt-1 text-[8px] font-label font-bold text-on-surface-variant/40 uppercase tracking-[0.1em]">Standby</div>
+</button>
+<button class="group flex flex-col items-center bg-surface-container border-2 border-transparent p-4 transition-all hover:border-outline-variant/30 hover:bg-surface-container-high col-span-2 md:col-span-1">
+<div class="w-12 h-12 bg-surface-container-highest text-on-surface-variant group-hover:text-on-surface flex items-center justify-center font-black text-xl mb-3">ED</div>
+<div class="text-[10px] font-headline font-black uppercase tracking-tighter text-on-surface-variant group-hover:text-on-surface">Etienne D.</div>
+<div class="mt-1 text-[8px] font-label font-bold text-on-surface-variant/40 uppercase tracking-[0.1em]">Standby</div>
+</button>
+</div>
+</div>
+<!-- Estimator Grid -->
+<div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+<!-- 0-2 Black -->
+<button class="group relative aspect-square bg-[#000000] border border-outline-variant/20 flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-white/90">0-2</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-white/50 uppercase">Loss Critical</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 2-4 Red -->
+<button class="group relative aspect-square bg-[#FF4D4D] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-on-error">2-4</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-on-error/70 uppercase">Major Defeat</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-error" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 5-8 Orange -->
+<button class="group relative aspect-square bg-[#FF8C00] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-on-tertiary">5-8</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-on-tertiary/70 uppercase">Minor Loss</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-tertiary" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 9-11 Yellow -->
+<button class="group relative aspect-square bg-[#FFD700] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-on-tertiary">9-11</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-on-tertiary/70 uppercase">Balanced</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-on-tertiary" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 12-14 Green -->
+<button class="group relative aspect-square bg-[#006400] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-white/90">12-14</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-white/50 uppercase">Minor Win</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-white" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 15-17 Light Green -->
+<button class="group relative aspect-square bg-[#90EE90] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-[#004a21]">15-17</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-[#004a21]/70 uppercase">Major Win</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[#004a21]" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- 17-20 Light Blue -->
+<button class="group relative aspect-square bg-[#ADD8E6] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-6xl font-headline font-black text-[#1a3a4a]">17-20</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-[#1a3a4a]/70 uppercase">Dominance</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-[#1a3a4a]" data-icon="touch_app">touch_app</span>
+</div>
+</button>
+<!-- Timer Tile (White) -->
+<button class="group relative aspect-square bg-[#FFFFFF] flex flex-col items-center justify-center p-6 hover:scale-[0.98] transition-transform">
+<div class="text-5xl font-headline font-black text-surface-container-lowest">TIMER</div>
+<div class="mt-2 text-xs font-label font-bold tracking-widest text-surface-container-lowest/60 uppercase">System Sync</div>
+<div class="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity">
+<span class="material-symbols-outlined text-surface-container-lowest" data-icon="timer">timer</span>
+</div>
+</button>
+</div>
+<!-- Dashboard Modules (Bento Style) -->
+<div class="mt-8 grid grid-cols-1 md:grid-cols-3 gap-4">
+<!-- Current Standing -->
+<div class="col-span-1 md:col-span-2 bg-surface-container p-6 border-l-4 border-secondary">
+<div class="flex justify-between items-start mb-6">
+<h2 class="text-xl font-bold uppercase">Live Score Simulation</h2>
+<span class="text-xs font-label text-on-surface-variant">UPDATED 2s AGO</span>
+</div>
+<div class="flex items-center gap-8">
+<div class="text-center">
+<div class="text-4xl font-headline font-black text-secondary">64</div>
+<div class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Estimated Pts</div>
+</div>
+<div class="flex-1 bg-surface-container-highest h-4 relative">
+<div class="absolute top-0 left-0 h-full bg-secondary w-[64%]"></div>
+<div class="absolute top-0 right-0 h-full w-[36%] bg-error-dim opacity-40"></div>
+</div>
+<div class="text-center">
+<div class="text-4xl font-headline font-black text-error">36</div>
+<div class="text-[10px] font-label font-bold uppercase tracking-widest text-on-surface-variant">Opponent Pts</div>
+</div>
+</div>
+</div>
+<!-- Tactics Card -->
+<div class="bg-surface-container-high p-6 flex flex-col justify-between">
+<div>
+<div class="flex items-center gap-2 mb-2">
+<span class="material-symbols-outlined text-tertiary" data-icon="lightbulb">lightbulb</span>
+<span class="text-xs font-bold uppercase tracking-widest text-tertiary">Tactical Advisory</span>
+</div>
+<p class="text-sm font-body text-on-surface leading-tight">Matchup 3 is high variance. Consider switching to defensive '9-11' estimate to buffer overall score.</p>
+</div>
+<a class="mt-4 text-[10px] font-black uppercase text-secondary flex items-center gap-1 hover:underline" href="#">
+                    View Matrix Details <span class="material-symbols-outlined text-xs" data-icon="chevron_right">chevron_right</span>
+</a>
+</div>
+</div>
+</div>
+</main>
+<!-- BottomNavBar -->
+<nav class="bg-[#0e0e0e] text-[#bbc8d0] font-['Inter'] text-[10px] uppercase font-bold tracking-tighter fixed bottom-0 left-0 w-full flex justify-around items-center h-16 md:hidden z-50 border-t border-[#252626]">
+<a class="flex flex-col items-center justify-center text-[#13ea79] bg-[#191a1a] p-2 w-full h-full" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="emoji_events" style="font-variation-settings: 'FILL' 1;">emoji_events</span>
+        Tournaments
+    </a>
+<a class="flex flex-col items-center justify-center text-[#3c494f] p-2 w-full h-full active:bg-[#252626]" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+        Profile
+    </a>
+</nav>
+<!-- Floating Command Prompt (Decorative UI Element) -->
+<div class="fixed bottom-6 right-6 hidden md:block group">
+<div class="bg-surface-container-highest border border-outline-variant/20 p-1 flex items-center shadow-2xl">
+<div class="px-4 py-2 text-[10px] font-headline font-bold text-on-surface-variant uppercase tracking-widest border-r border-outline-variant/20">CMD</div>
+<div class="px-4 py-2 font-body text-xs text-secondary animate-pulse flex items-center gap-2">
+<span class="w-1.5 h-3 bg-secondary"></span>
+            AWAITING ESTIMATE FOR: JEAN-LUC P.
+        </div>
+</div>
+</div>
+</body></html>

@@ -153,6 +153,14 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Model bezpieczeństwa jest adekwatny do pilotażu zamkniętego, nie do szerokiego publicznego rolloutu.
 - `accounts.md` z PIN-ami musi pozostać poza repozytorium publicznym.
 
+### 4.4 Rekomendacje implementacyjne MVP (decyzje)
+- Architektura MVP powinna być uproszczona: `Next.js + Supabase` jako domyślna baza aplikacji, bez wymogu osobnego backendu domenowego w pierwszej iteracji.
+- `NestJS` jest opcjonalny na etapie MVP i powinien zostać dołączony dopiero, gdy wzrośnie złożoność integracji, obciążenie lub zakres logiki backendowej.
+- Zarządzanie stanem po stronie klienta powinno zaczynać od lokalnego stanu + Context (oraz cache zapytań), a dedykowany globalny store należy wdrażać dopiero po pojawieniu się realnego problemu skalowania stanu.
+- Scraping i import danych turniejowych powinny działać server-side jako zadania asynchroniczne z retry i fallbackiem ręcznym, bez rozbudowanej orkiestracji usług na starcie.
+- Tryb offline dla kapitana powinien opierać się o lokalny magazyn danych (np. IndexedDB) oraz jawny mechanizm synchronizacji po odzyskaniu sieci, zgodny z regułą "local wins" z FR-046.
+- Architektura MVP powinna być przygotowana do stopniowego rozszerzania (modułowość), ale bez wdrażania pełnej złożoności docelowej przed walidacją pilotażu.
+
 ## 5. Historyjki użytkowników
 
 ### US-001

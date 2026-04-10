@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+
+<html class="dark" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@300;400;500;600;700&amp;family=Inter:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<script id="tailwind-config">
+      tailwind.config = {
+        darkMode: "class",
+        theme: {
+          extend: {
+            "colors": {
+                    "on-primary-container": "#c5d2da",
+                    "outline": "#767575",
+                    "primary": "#bbc8d0",
+                    "on-tertiary-container": "#594a00",
+                    "on-secondary": "#004f24",
+                    "tertiary-fixed-dim": "#edc600",
+                    "secondary-dim": "#00da70",
+                    "inverse-primary": "#546167",
+                    "tertiary-dim": "#edc600",
+                    "primary-dim": "#aebbc2",
+                    "on-secondary-container": "#00dc70",
+                    "on-tertiary-fixed": "#433700",
+                    "on-surface": "#e7e5e5",
+                    "on-primary-fixed": "#354147",
+                    "tertiary-container": "#fdd400",
+                    "surface-container-low": "#131313",
+                    "surface-bright": "#2b2c2c",
+                    "error-container": "#7f2927",
+                    "primary-fixed": "#d7e4ec",
+                    "on-primary-fixed-variant": "#515d64",
+                    "outline-variant": "#484848",
+                    "on-primary": "#364248",
+                    "primary-container": "#3c494f",
+                    "inverse-surface": "#fcf9f8",
+                    "tertiary-fixed": "#fdd400",
+                    "inverse-on-surface": "#565555",
+                    "surface-container-high": "#1f2020",
+                    "on-background": "#e7e5e5",
+                    "surface-tint": "#bbc8d0",
+                    "error-dim": "#bb5551",
+                    "secondary-container": "#00451f",
+                    "surface-container-lowest": "#000000",
+                    "tertiary": "#ffe483",
+                    "primary-fixed-dim": "#c9d6de",
+                    "surface-dim": "#0e0e0e",
+                    "on-tertiary-fixed-variant": "#645300",
+                    "on-secondary-fixed-variant": "#006a33",
+                    "secondary-fixed-dim": "#2af381",
+                    "on-error": "#490106",
+                    "surface-container-highest": "#252626",
+                    "secondary": "#13ea79",
+                    "on-tertiary": "#635200",
+                    "on-secondary-fixed": "#004a21",
+                    "surface": "#0e0e0e",
+                    "error": "#ee7d77",
+                    "background": "#0e0e0e",
+                    "on-surface-variant": "#acabaa",
+                    "surface-variant": "#252626",
+                    "on-error-container": "#ff9993",
+                    "surface-container": "#191a1a",
+                    "secondary-fixed": "#62ff96"
+            },
+            "borderRadius": {
+                    "DEFAULT": "0rem",
+                    "lg": "0rem",
+                    "xl": "0rem",
+                    "full": "9999px"
+            },
+            "fontFamily": {
+                    "headline": ["Space Grotesk"],
+                    "body": ["Inter"],
+                    "label": ["Inter"]
+            }
+          },
+        },
+      }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            display: inline-block;
+            line-height: 1;
+            text-transform: none;
+            letter-spacing: normal;
+            word-wrap: normal;
+            white-space: nowrap;
+            direction: ltr;
+        }
+        body {
+            background-color: #0e0e0e;
+            color: #e7e5e5;
+            font-family: 'Inter', sans-serif;
+        }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-surface text-on-surface min-h-screen pb-20">
+<!-- TopNavBar Mapping -->
+<nav class="bg-[#0e0e0e] text-[#bbc8d0] font-['Space_Grotesk'] tracking-tight flex justify-between items-center w-full px-6 py-3 fixed top-0 z-40 border-b border-[#252626]">
+<div class="text-xl font-bold tracking-tighter text-[#bbc8d0] uppercase">Parinator</div>
+<div class="flex items-center gap-4">
+<span class="material-symbols-outlined text-[#bbc8d0]" data-icon="account_circle">account_circle</span>
+</div>
+</nav>
+<!-- Main Content Canvas -->
+<main class="pt-16 px-4 max-w-md mx-auto">
+<!-- Tactical Header Section -->
+<header class="py-6 border-b border-surface-container-highest">
+<div class="flex justify-between items-end mb-2">
+<h1 class="font-headline text-2xl font-bold tracking-tighter uppercase text-primary leading-none">
+                    Round 3: Scorched Earth
+                </h1>
+<span class="text-[10px] font-label font-black tracking-widest uppercase text-secondary bg-secondary-container px-2 py-1">ACTIVE</span>
+</div>
+<div class="flex items-center gap-2 mt-1">
+<span class="material-symbols-outlined text-outline text-sm" data-icon="explore">explore</span>
+<span class="font-label text-xs tracking-tight text-on-surface-variant">Deployment: </span>
+<span class="font-label text-xs font-bold text-on-surface uppercase tracking-wider">Search and Destroy</span>
+</div>
+</header>
+<!-- Tactical Stats Grid (Bento Style) -->
+<div class="grid grid-cols-2 gap-px bg-surface-container-highest my-4 border border-surface-container-highest">
+<div class="bg-surface-container p-4">
+<p class="font-label text-[10px] uppercase tracking-widest text-outline-variant mb-1">Estimated Matches</p>
+<p class="font-headline text-xl font-bold text-secondary">2/5</p>
+</div>
+<div class="bg-surface-container p-4">
+<p class="font-label text-[10px] uppercase tracking-widest text-outline-variant mb-1">Time Remaining</p>
+<p class="font-headline text-xl font-bold text-primary">14:22</p>
+</div>
+</div>
+<!-- Opponent List Section -->
+<section class="space-y-3 mt-6">
+<h2 class="font-label text-[10px] font-bold uppercase tracking-[0.2em] text-outline px-1">Tactical Targets</h2>
+<!-- Opponent Card 1 (Estimated) -->
+<div class="bg-surface-container-low p-4 flex flex-col gap-4 border-l-4 border-secondary">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg font-bold text-on-surface leading-tight">Marcus Thorne</h3>
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-tighter">Adeptus Astartes • Iron Hands</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label text-[10px] font-bold text-secondary-fixed-dim bg-secondary-container px-2 py-0.5 uppercase tracking-tighter">Estimated</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary font-label text-[10px] font-bold uppercase tracking-widest py-3 hover:bg-[#252626] transition-colors border border-outline-variant/20">
+                        Edit
+                    </button>
+<button class="w-12 bg-surface-container-highest flex items-center justify-center border border-outline-variant/20">
+<span class="material-symbols-outlined text-sm" data-icon="bar_chart">bar_chart</span>
+</button>
+</div>
+</div>
+<!-- Opponent Card 2 (Pending) -->
+<div class="bg-surface-container-low p-4 flex flex-col gap-4 border-l-4 border-outline-variant">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg font-bold text-on-surface leading-tight">Sarah Chen</h3>
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-tighter">Aeldari • Craftworld Ulthwe</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label text-[10px] font-bold text-outline bg-surface-container-highest px-2 py-0.5 uppercase tracking-tighter">Pending</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest py-3 active:scale-95 duration-100 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    Add Estimation
+                </button>
+</div>
+<!-- Opponent Card 3 (Estimated) -->
+<div class="bg-surface-container-low p-4 flex flex-col gap-4 border-l-4 border-secondary">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg font-bold text-on-surface leading-tight">Olaf Haakon</h3>
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-tighter">Leagues of Votann • Greater Thurian</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label text-[10px] font-bold text-secondary-fixed-dim bg-secondary-container px-2 py-0.5 uppercase tracking-tighter">Estimated</span>
+</div>
+</div>
+<div class="flex gap-2">
+<button class="flex-1 bg-surface-container-highest text-primary font-label text-[10px] font-bold uppercase tracking-widest py-3 border border-outline-variant/20">
+                        Edit
+                    </button>
+<button class="w-12 bg-surface-container-highest flex items-center justify-center border border-outline-variant/20">
+<span class="material-symbols-outlined text-sm" data-icon="bar_chart">bar_chart</span>
+</button>
+</div>
+</div>
+<!-- Opponent Card 4 (Pending) -->
+<div class="bg-surface-container-low p-4 flex flex-col gap-4 border-l-4 border-outline-variant">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg font-bold text-on-surface leading-tight">Liam Vance</h3>
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-tighter">Necrons • Szarekhan Dynasty</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label text-[10px] font-bold text-outline bg-surface-container-highest px-2 py-0.5 uppercase tracking-tighter">Pending</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest py-3 active:scale-95 duration-100 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    Add Estimation
+                </button>
+</div>
+<!-- Opponent Card 5 (Pending) -->
+<div class="bg-surface-container-low p-4 flex flex-col gap-4 border-l-4 border-outline-variant">
+<div class="flex justify-between items-start">
+<div>
+<h3 class="font-headline text-lg font-bold text-on-surface leading-tight">Elena Rossi</h3>
+<p class="font-label text-xs text-on-surface-variant uppercase tracking-tighter">Tyranids • Hive Fleet Leviathan</p>
+</div>
+<div class="flex flex-col items-end">
+<span class="font-label text-[10px] font-bold text-outline bg-surface-container-highest px-2 py-0.5 uppercase tracking-tighter">Pending</span>
+</div>
+</div>
+<button class="w-full bg-primary text-on-primary font-label text-[10px] font-bold uppercase tracking-widest py-3 active:scale-95 duration-100 flex items-center justify-center gap-2">
+<span class="material-symbols-outlined text-sm" data-icon="add">add</span>
+                    Add Estimation
+                </button>
+</div>
+</section>
+<!-- Technical Metadata -->
+<div class="mt-8 mb-12 p-4 bg-surface-container-highest/30 border border-surface-container-highest">
+<p class="font-label text-[10px] text-outline tracking-tight leading-relaxed">
+                DATA SYNC: 14:02:11 GMT+1<br/>
+                ENCRYPTION: AES-256 ACTIVE<br/>
+                MISSION PARAMETERS: WTC 2024 COMMAND STANDARDS
+            </p>
+</div>
+</main>
+<!-- BottomNavBar Mapping -->
+<nav class="fixed bottom-0 left-0 w-full flex justify-around items-center h-16 md:hidden bg-[#0e0e0e] text-[#bbc8d0] font-['Inter'] text-[10px] uppercase font-bold tracking-tighter border-t border-[#252626] z-50">
+<!-- Tournaments Item (Active Mapping) -->
+<a class="flex flex-col items-center justify-center text-[#13ea79] bg-[#191a1a] p-2 flex-1 h-full scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="emoji_events">emoji_events</span>
+<span>Tournaments</span>
+</a>
+<!-- Profile Item (Inactive Mapping) -->
+<a class="flex flex-col items-center justify-center text-[#3c494f] p-2 flex-1 h-full active:bg-[#252626] scale-90 transition-transform" href="#">
+<span class="material-symbols-outlined mb-1" data-icon="account_circle">account_circle</span>
+<span>Profile</span>
+</a>
+</nav>
+</body></html>

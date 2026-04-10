@@ -1,0 +1,116 @@
+{
+  "source": "Google Stitch",
+  "projectId": "14452944700689366656",
+  "projectTitle": "Parinator",
+  "importedAt": "2026-04-10T19:23:08.991918+00:00",
+  "screens": [
+    {
+      "id": "4eb52bf151904649b6b07fed8cc67346",
+      "title": "Simulation Dashboard",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2148",
+      "htmlFile": "screens/4eb52bf151904649b6b07fed8cc67346__simulation-dashboard.html",
+      "pngFile": "screens/4eb52bf151904649b6b07fed8cc67346__simulation-dashboard.png"
+    },
+    {
+      "id": "4c90045fe8204879a49817dcca55bd58",
+      "title": "Tournament Setup",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2058",
+      "htmlFile": "screens/4c90045fe8204879a49817dcca55bd58__tournament-setup.html",
+      "pngFile": "screens/4c90045fe8204879a49817dcca55bd58__tournament-setup.png"
+    },
+    {
+      "id": "751bfe2a09a74b3aaa67c2f83c2db261",
+      "title": "Captain Estimator - Player Selection Added",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2240",
+      "htmlFile": "screens/751bfe2a09a74b3aaa67c2f83c2db261__captain-estimator-player-selection-added.html",
+      "pngFile": "screens/751bfe2a09a74b3aaa67c2f83c2db261__captain-estimator-player-selection-added.png"
+    },
+    {
+      "id": "40723cb3fb0a4584bcc75460493832b3",
+      "title": "Login Screen",
+      "deviceType": "DESKTOP",
+      "width": "2656",
+      "height": "2144",
+      "htmlFile": "screens/40723cb3fb0a4584bcc75460493832b3__login-screen.html",
+      "pngFile": "screens/40723cb3fb0a4584bcc75460493832b3__login-screen.png"
+    },
+    {
+      "id": "91c5cd41ec924f6d85b061170b469d6b",
+      "title": "Matchup Estimation Wizard",
+      "deviceType": "MOBILE",
+      "width": "780",
+      "height": "3512",
+      "htmlFile": "screens/91c5cd41ec924f6d85b061170b469d6b__matchup-estimation-wizard.html",
+      "pngFile": "screens/91c5cd41ec924f6d85b061170b469d6b__matchup-estimation-wizard.png"
+    },
+    {
+      "id": "6dc6b57fbe2a43deb2694be28f06831a",
+      "title": "Simulator - Step 1: Defender Selection",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2048",
+      "htmlFile": "screens/6dc6b57fbe2a43deb2694be28f06831a__simulator-step-1-defender-selection.html",
+      "pngFile": "screens/6dc6b57fbe2a43deb2694be28f06831a__simulator-step-1-defender-selection.png"
+    },
+    {
+      "id": "5045b213e73545d0b53e981d6d4e7bf4",
+      "title": "Matchup Estimation Wizard - Updated Flow",
+      "deviceType": "MOBILE",
+      "width": "780",
+      "height": "4334",
+      "htmlFile": "screens/5045b213e73545d0b53e981d6d4e7bf4__matchup-estimation-wizard-updated-flow.html",
+      "pngFile": "screens/5045b213e73545d0b53e981d6d4e7bf4__matchup-estimation-wizard-updated-flow.png"
+    },
+    {
+      "id": "c56b4efb06ac436388a1bf3c57032b08",
+      "title": "Simulator - Step 2: Attackers & Tables",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2048",
+      "htmlFile": "screens/c56b4efb06ac436388a1bf3c57032b08__simulator-step-2-attackers-tables.html",
+      "pngFile": "screens/c56b4efb06ac436388a1bf3c57032b08__simulator-step-2-attackers-tables.png"
+    },
+    {
+      "id": "82bc28aadac34495951722e709ab2ea7",
+      "title": "Player Round List",
+      "deviceType": "MOBILE",
+      "width": "780",
+      "height": "2500",
+      "htmlFile": "screens/82bc28aadac34495951722e709ab2ea7__player-round-list.html",
+      "pngFile": "screens/82bc28aadac34495951722e709ab2ea7__player-round-list.png"
+    },
+    {
+      "id": "51090035e5f148999fdd8c4736dc6d04",
+      "title": "Main Pairing Matrix - Finalized Results View",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "3130",
+      "htmlFile": "screens/51090035e5f148999fdd8c4736dc6d04__main-pairing-matrix-finalized-results-view.html",
+      "pngFile": "screens/51090035e5f148999fdd8c4736dc6d04__main-pairing-matrix-finalized-results-view.png"
+    },
+    {
+      "id": "f13e72ba69cf49c9aada112f0d0d835c",
+      "title": "Simulator - Final Summary",
+      "deviceType": "DESKTOP",
+      "width": "2560",
+      "height": "2048",
+      "htmlFile": "screens/f13e72ba69cf49c9aada112f0d0d835c__simulator-final-summary.html",
+      "pngFile": "screens/f13e72ba69cf49c9aada112f0d0d835c__simulator-final-summary.png"
+    },
+    {
+      "id": "64d55d797a604b2c9fb6a7a6dc800854",
+      "title": "Matchup Estimation",
+      "deviceType": "MOBILE",
+      "width": "780",
+      "height": "3390",
+      "htmlFile": "screens/64d55d797a604b2c9fb6a7a6dc800854__matchup-estimation.html",
+      "pngFile": "screens/64d55d797a604b2c9fb6a7a6dc800854__matchup-estimation.png"
+    }
+  ]
+}
