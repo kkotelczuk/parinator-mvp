@@ -466,3 +466,121 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Czy kryteria akceptacji są jasne i konkretne: tak, kryteria są zdefiniowane przez warunki wejścia, akcję i oczekiwany wynik.
 - Czy mamy wystarczająco dużo historyjek użytkownika, aby zbudować w pełni funkcjonalną aplikację: tak, zakres obejmuje scenariusze podstawowe, alternatywne i skrajne dla gracza, kapitana oraz operacji pilotażu.
 - Czy uwzględniono wymagania uwierzytelniania i autoryzacji: tak, obejmują je US-001, US-002 i US-032.
+
+## 7. Aktualizacja po warsztacie planowania bazy danych (post-MVP)
+
+### 7.1 Decyzje domenowe i modelowe
+- Model bazy danych ma wspierać docelowo różne rozmiary drużyn (5, 8 i większe), przy zachowaniu scenariusza MVP: 5 graczy + kapitan niegrający.
+- `team_size` jest zamrażany na etapie setupu turnieju.
+- Użytkownik może należeć do wielu drużyn.
+- Status turnieju: `active`, `closed`.
+- Turniej w statusie `active` może być dowolnie konfigurowany.
+- Runda może zostać zamknięta tylko przez kapitana.
+- Po zamknięciu rundy wszystkie dane rundy są read-only.
+- Zmiana drużyny przeciwnej wykonuje hard reset całej rundy.
+- Estymacje może dodawać wyłącznie rola `player`.
+- Komentarze do estymacji są per runda.
+- Preferencje stołów zapisują tylko odchylenia od stanu neutralnego.
+- Gracz widzi matrix jak kapitan, ale wyłącznie read-only.
+- Pełny matrix jest dostępny dla gracza dopiero po uzupełnieniu jego własnych estymacji dla rundy.
+- Kody dołączania działają bez TTL.
+- Deduplikacja importu działa globalnie.
+- Audyt zdarzeń ma być minimalny.
+- Po zamknięciu turnieju dane historyczne są read-only i dostępne dla wszystkich członków drużyny.
+
+### 7.2 Historyjki oznaczone jako nieaktualne
+- `US-002` - nieaktualna w części dotyczącej wyłączności widoku tabeli parowania dla kapitana.
+- `US-019` - nieaktualna w części dotyczącej wyłącznego wsparcia procesu 5-osobowego jako modelu docelowego.
+- `US-027` - nieaktualna w części zakresu resetu (wcześniej tylko estymacje i komentarze).
+
+### 7.3 Nowe historyjki użytkownika (uzupełnienie)
+
+### US-033
+- ID: US-033
+- Tytuł: Konfiguracja rozmiaru drużyny i roli kapitana
+- Opis: Jako kapitan chcę ustawić rozmiar drużyny oraz wskazać kapitana jako grającego lub niegrającego, aby system obsługiwał formaty 5/8+.
+- Kryteria akceptacji:
+  - Turniej ma konfigurowalne `team_size`.
+  - `team_size` jest niezmienny po setupie turnieju.
+  - System wspiera kapitana niegrającego.
+
+### US-034
+- ID: US-034
+- Tytuł: Zamknięcie rundy przez kapitana
+- Opis: Jako kapitan chcę zamknąć rundę, aby zablokować dalszą edycję wszystkich danych rundy.
+- Kryteria akceptacji:
+  - Tylko kapitan może zamknąć rundę.
+  - Po zamknięciu wszystkie dane rundy są read-only.
+  - Gracz i kapitan zachowują dostęp odczytowy do danych zamkniętej rundy.
+
+### US-035
+- ID: US-035
+- Tytuł: Hard reset całej rundy po zmianie drużyny przeciwnej
+- Opis: Jako kapitan chcę, aby zmiana drużyny przeciwnej usuwała cały stan rundy, aby uniknąć niespójnych danych.
+- Kryteria akceptacji:
+  - Zmiana drużyny przeciwnej usuwa wszystkie dane operacyjne rundy.
+  - Po resecie runda wraca do stanu pustego.
+  - Użytkownicy widzą brak danych wymagających ponownego uzupełnienia.
+
+### US-036
+- ID: US-036
+- Tytuł: Read-only matrix dla gracza po własnym uzupełnieniu estymacji
+- Opis: Jako gracz chcę zobaczyć pełny matrix drużyny po wykonaniu własnych estymacji, aby porównać sytuację bez możliwości edycji.
+- Kryteria akceptacji:
+  - Przed uzupełnieniem własnych estymacji gracz nie widzi pełnego matrixu.
+  - Po uzupełnieniu własnych estymacji gracz widzi pełny matrix.
+  - Gracz nie może edytować danych matrixu poza własnymi estymacjami.
+
+### US-037
+- ID: US-037
+- Tytuł: Członkostwo użytkownika w wielu drużynach
+- Opis: Jako użytkownik chcę należeć do wielu drużyn, aby brać udział w różnych turniejach.
+- Kryteria akceptacji:
+  - Użytkownik może mieć aktywne członkostwa w wielu drużynach.
+  - Dane drużyn są odseparowane kontekstem członkostwa.
+  - Przełączenie kontekstu drużyny nie miesza danych.
+
+### US-038
+- ID: US-038
+- Tytuł: Kody dołączania bez TTL
+- Opis: Jako kapitan chcę używać kodu dołączania bez limitu czasu, aby kontrolować dołączanie przez limit miejsc i regenerację.
+- Kryteria akceptacji:
+  - Kod nie wygasa czasowo.
+  - Kod jest unieważniany po regeneracji.
+  - Liczba dołączeń jest ograniczona liczbą wolnych miejsc.
+
+### US-039
+- ID: US-039
+- Tytuł: Dostęp historyczny po zamknięciu turnieju
+- Opis: Jako członek drużyny chcę mieć odczyt danych po zamknięciu turnieju, aby analizować historię.
+- Kryteria akceptacji:
+  - Turniej `closed` jest read-only.
+  - Wszyscy członkowie drużyny mają dostęp odczytowy do danych zamkniętego turnieju.
+  - Brak możliwości modyfikacji danych zamkniętego turnieju.
+
+### US-040
+- ID: US-040
+- Tytuł: Ograniczenie estymacji do roli player
+- Opis: Jako właściciel procesu chcę, aby estymacje były wprowadzane tylko przez graczy, aby role były jednoznaczne.
+- Kryteria akceptacji:
+  - Tylko użytkownik z rolą `player` może tworzyć i edytować estymacje.
+  - Kapitan nie może zapisać estymacji jako własnego wpisu.
+  - Próby zapisu estymacji przez inne role są blokowane.
+
+### US-041
+- ID: US-041
+- Tytuł: Globalna deduplikacja importu turniejów
+- Opis: Jako kapitan chcę korzystać z globalnego cache importu, aby przyspieszyć setup i ograniczyć duplikację danych.
+- Kryteria akceptacji:
+  - System wykrywa duplikaty importu globalnie.
+  - Dla zduplikowanego importu system korzysta z istniejącego cache.
+  - Informacja o źródle i statusie importu jest zapisana diagnostycznie.
+
+### US-042
+- ID: US-042
+- Tytuł: Minimalny audyt operacji krytycznych
+- Opis: Jako operator produktu chcę mieć minimalny audyt zdarzeń, aby diagnozować problemy bez rozbudowanego logowania.
+- Kryteria akceptacji:
+  - System zapisuje zdarzenia krytyczne (np. zamknięcie rundy, reset, sync).
+  - Audyt zawiera minimalny zestaw metadanych.
+  - Audyt nie zawiera pełnych snapshotów before/after.
