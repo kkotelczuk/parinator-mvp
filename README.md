@@ -1,30 +1,30 @@
 # Parinator Monorepo
 
-Monorepo oparte na Turborepo z:
+This Turborepo-based monorepo includes:
 
 - `apps/web` - Next.js (App Router, SSR), Redux Toolkit, RHF + Zod, Tailwind, RTL + Vitest, Playwright
-- `apps/api` - NestJS + modul auth z klientem Supabase
-- `packages/ui` - wspoldzielone komponenty UI
-- `packages/config` - wspoldzielone konfiguracje ESLint/TS/Prettier
-- `packages/schema` - wspoldzielone schematy Zod i typy TypeScript
+- `apps/api` - NestJS with an auth module and Supabase client integration
+- `packages/ui` - shared UI components
+- `packages/config` - shared ESLint/TS/Prettier configuration
+- `packages/schema` - shared Zod schemas and TypeScript types
 
-## Wymagania
+## Requirements
 
 - Node.js 22+
 - npm 10+
 
-## Szybki start (jedna komenda)
+## Quick Start (One Command)
 
 ```bash
 npm install && npm run dev
 ```
 
-Polecenie uruchamia frontend i backend rownolegle przez Turborepo.
+This command starts frontend and backend in parallel via Turborepo.
 
 - Frontend: `http://localhost:3000`
 - Backend: `http://localhost:3001/health`
 
-## Komendy
+## Commands
 
 ```bash
 npm run lint
@@ -33,9 +33,9 @@ npm run test:e2e
 npm run build
 ```
 
-## Zmienne srodowiskowe
+## Environment Variables
 
-`apps/api/.env` (przyklad):
+`apps/api/.env` (example):
 
 ```bash
 SUPABASE_URL=https://your-project.supabase.co
@@ -46,5 +46,5 @@ PORT=3001
 
 ## Cloudflare
 
-- Frontend (`apps/web`) jest przygotowany pod Cloudflare przez `opennextjs-cloudflare` (`npm run build:cf --workspace=@parinator/web`) i `wrangler.toml`.
-- Backend (`apps/api`) ma przygotowany `Dockerfile` do deploymentu kontenerowego (np. Cloudflare Workers/Platforms z obrazem kontenerowym).
+- Frontend (`apps/web`) is prepared for Cloudflare via OpenNext (`npm run build:cf --workspace=@parinator/web`) and `wrangler.toml`.
+- Backend (`apps/api`) includes a ready-to-use `Dockerfile` for container-based deployment (for example Cloudflare Workers/Platforms with a container image).
