@@ -1,0 +1,25 @@
+{
+  "name": "@parinator/config",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "lint": "echo \"config lint placeholder\"",
+    "test": "echo \"config test placeholder\""
+  },
+  "exports": {
+    "./eslint/next": "./eslint/next.mjs",
+    "./eslint/nest": "./eslint/nest.mjs",
+    "./tsconfig/base": "./tsconfig/base.json",
+    "./tsconfig/next": "./tsconfig/next.json",
+    "./tsconfig/nest": "./tsconfig/nest.json",
+    "./prettier": "./prettier/index.cjs"
+  },
+  "dependencies": {
+    "@eslint/js": "^9.37.0",
+    "eslint-config-next": "^16.2.3",
+    "eslint-plugin-prettier": "^5.5.4",
+    "globals": "^16.4.0",
+    "typescript-eslint": "^8.46.1"
+  }
+}

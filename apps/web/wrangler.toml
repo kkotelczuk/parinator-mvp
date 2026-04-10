@@ -1,0 +1,7 @@
+name = "parinator-web"
+compatibility_date = "2026-04-10"
+main = ".open-next/worker.js"
+
+[assets]
+directory = ".open-next/assets"
+binding = "ASSETS"

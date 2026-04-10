@@ -1,0 +1,26 @@
+{
+  "extends": "../../packages/config/tsconfig/next.json",
+  "compilerOptions": {
+    "target": "ES2017",
+    "baseUrl": ".",
+    "lib": ["dom", "dom.iterable", "esnext"],
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ],
+    "paths": {
+      "@/*": ["./*"],
+      "@parinator/schema": ["../../packages/schema/src/index.ts"],
+      "@parinator/ui": ["../../packages/ui/src/index.ts"]
+    }
+  },
+  "include": [
+    "next-env.d.ts",
+    "**/*.ts",
+    "**/*.tsx",
+    ".next/types/**/*.ts",
+    ".next/dev/types/**/*.ts"
+  ],
+  "exclude": ["node_modules"]
+}
