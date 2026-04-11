@@ -12,7 +12,8 @@
     "build": "npx turbo run build",
     "lint": "npx turbo run lint",
     "test": "npx turbo run test",
-    "test:e2e": "npx turbo run test:e2e"
+    "test:e2e": "npx turbo run test:e2e",
+    "sync:github-issues": "node .github/scripts/sync-user-stories.mjs"
   },
   "devDependencies": {
     "turbo": "^2.5.8"
