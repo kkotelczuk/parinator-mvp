@@ -1,5 +1,7 @@
 import { z } from "zod";
 
+export * from "./types";
+
 export const loginSchema = z.object({
   email: z.email(),
   password: z.string().min(8, "Password must have at least 8 characters"),

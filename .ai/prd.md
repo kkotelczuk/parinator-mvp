@@ -62,6 +62,7 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - FR-006: Kod jest usuwany po osiągnięciu limitu graczy.
 - FR-007: Po usunięciu gracza system generuje nowy kod, a limit odpowiada wolnym miejscom.
 - FR-008: Jedyną ścieżką dołączenia gracza do drużyny jest kod od kapitana.
+- FR-008a: Każdy kod ma ustalony czas wygaśnięcia (TTL): po upływie tego czasu kod jest nieważny niezależnie od pozostałych użyć; nowy kod otrzymuje własny termin ważności przy generacji lub regeneracji.
 
 ### 3.3 Konfiguracja turnieju i rund
 - FR-009: Kapitan może utworzyć turniej na podstawie linku ChampionsHub lub Best Coast Pairings.
@@ -69,6 +70,8 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - FR-011: Dla ponownie użytego turnieju system korzysta z cache w bazie.
 - FR-012: Jeśli scraping się nie powiedzie, kapitan może wkleić dowolny tekst jako fallback.
 - FR-013: Kapitan konfiguruje rundy: misja, deployment, stoły, opcjonalnie drużyna przeciwna.
+- FR-013a: Każda runda ma nazwę ustawianą przez kapitana (`display_name`); w jednym turnieju może być co najwyżej 200 rund.
+- FR-013b: Kapitan wskazuje co najwyżej jedną „bieżącą” rundę (`is_active`) na turniej; na listach rund bieżąca runda jest na górze, a poniżej — pozostałe rundą w kolejności od najnowszej do najstarszej (MVP). Po MVP kapitan ustala kolejność pozostałych rund na dashboardzie turnieju przez przeciąganie (persistowane jako `sort_order`).
 
 ### 3.4 Estymacje gracza
 - FR-014: Gracz widzi tylko aktywne turnieje.
@@ -145,6 +148,7 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Integracje logowania Apple/Google/email/MyWarhammer/BCP.
 - Powiadomienia push/in-app.
 - Integracja z zewnętrznymi systemami wyników.
+- Ręczne ustalanie kolejności rund na liście (drag-and-drop) poza domyślnym sortowaniem MVP.
 
 ### 4.3 Ograniczenia i zależności
 - Zespół: 1 developer + AI.
@@ -214,6 +218,9 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Opis: Jako kapitan chcę ustawić misję, deployment, stoły i opcjonalnie przeciwną drużynę, aby przygotować rundę do estymacji i parowania.
 - Kryteria akceptacji:
   - Każda runda ma pola misji, deploymentu i stołów.
+  - Każda runda ma nazwę ustawianą przez kapitana (etykieta dowolna, niepusta).
+  - W turnieju może być co najwyżej 200 rund.
+  - Kapitan może oznaczyć co najwyżej jedną rundę jako bieżącą (`is_active`); lista rund pokazuje ją na górze, pod nią pozostałe od najnowszej (MVP).
   - Przeciwna drużyna może być ustawiona lub pusta.
   - Zmiany są zapisywane i widoczne dla graczy.
 
@@ -223,7 +230,7 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Opis: Jako kapitan chcę wygenerować kod dołączania, aby gracze mogli wejść do drużyny.
 - Kryteria akceptacji:
   - Po zakończeniu konfiguracji turnieju system generuje 6-cyfrowy kod.
-  - Kod jest widoczny dla kapitana.
+  - Kod jest widoczny dla kapitana wraz z informacją o terminie ważności (TTL).
   - Kod pozwala dołączyć tylko do właściwej drużyny i turnieju.
 
 ### US-008
@@ -231,9 +238,9 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Tytuł: Dołączanie gracza kodem
 - Opis: Jako gracz chcę dołączyć do drużyny kodem od kapitana, aby mieć dostęp do właściwych rund i przeciwników.
 - Kryteria akceptacji:
-  - Gracz może dołączyć wyłącznie przez poprawny aktywny kod.
+  - Gracz może dołączyć wyłącznie przez poprawny aktywny kod przed upływem terminu ważności (TTL).
   - Po dołączeniu gracz widzi aktywny turniej drużyny.
-  - Niepoprawny lub nieaktywny kod jest odrzucany.
+  - Niepoprawny, nieaktywny lub przeterminowany kod jest odrzucany.
 
 ### US-009
 - ID: US-009
@@ -483,10 +490,11 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 - Preferencje stołów zapisują tylko odchylenia od stanu neutralnego.
 - Gracz widzi matrix jak kapitan, ale wyłącznie read-only.
 - Pełny matrix jest dostępny dla gracza dopiero po uzupełnieniu jego własnych estymacji dla rundy.
-- Kody dołączania działają bez TTL.
+- Kody dołączania mają TTL (`expires_at`); po wygaśnięciu zachowanie jak dla nieważnego kodu (w tym możliwość wygenerowania nowego aktywnego kodu po uprzątnięciu przeterminowanego rekordu).
 - Deduplikacja importu działa globalnie.
 - Audyt zdarzeń ma być minimalny.
 - Po zamknięciu turnieju dane historyczne są read-only i dostępne dla wszystkich członków drużyny.
+- Rundy w turnieju mają nazwy nadane przez kapitana; limit 200 rund na turniej; co najwyżej jedna runda „bieżąca” (`is_active`); kolejność listy w MVP: bieżąca na górze, niżej od najnowszej; po MVP dodatkowo ręczna kolejność przez drag-and-drop (`sort_order`).
 
 ### 7.2 Historyjki oznaczone jako nieaktualne
 - `US-002` - nieaktualna w części dotyczącej wyłączności widoku tabeli parowania dla kapitana.
@@ -542,12 +550,13 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
 
 ### US-038
 - ID: US-038
-- Tytuł: Kody dołączania bez TTL
-- Opis: Jako kapitan chcę używać kodu dołączania bez limitu czasu, aby kontrolować dołączanie przez limit miejsc i regenerację.
+- Tytuł: Kody dołączania z TTL
+- Opis: Jako kapitan chcę, aby kod dołączania miał termin ważności, aby ograniczyć ryzyko długotrwałego przecieku kodu przy zachowaniu limitu miejsc i regeneracji.
 - Kryteria akceptacji:
-  - Kod nie wygasa czasowo.
-  - Kod jest unieważniany po regeneracji.
-  - Liczba dołączeń jest ograniczona liczbą wolnych miejsc.
+  - Przy generacji lub regeneracji kodu zapisywany jest absolutny moment wygaśnięcia (`expires_at`).
+  - Po `expires_at` kod nie pozwala na dołączenie (tak jak wyczerpany lub odwołany).
+  - Kod jest unieważniany po regeneracji i po wyczerpaniu limitu użyć.
+  - Liczba dołączeń jest ograniczona liczbą wolnych miejsc oraz terminem ważności.
 
 ### US-039
 - ID: US-039
@@ -584,3 +593,14 @@ MVP jest zamkniętym pilotażem. Produkt ma udowodnić, że:
   - System zapisuje zdarzenia krytyczne (np. zamknięcie rundy, reset, sync).
   - Audyt zawiera minimalny zestaw metadanych.
   - Audyt nie zawiera pełnych snapshotów before/after.
+
+### US-043
+- ID: US-043
+- Tytuł: Nazwy rund, limit 200 i kolejność na liście
+- Opis: Jako kapitan chcę tworzyć rundy z własnymi nazwami, w limicie do 200 rund na turniej, z czytelną kolejnością na liście (bieżąca na górze, pod nią najnowsze), aby nawigować po wielu rundach bez numerów narzuconych wyłącznie przez system.
+- Kryteria akceptacji:
+  - Przy tworzeniu rundy kapitan podaje nazwę (wyświetlaną w UI); system odrzuca pustą nazwę.
+  - System nie pozwala dodać więcej niż 200 rund w jednym turnieju.
+  - Co najwyżej jedna runda ma status bieżącej (`is_active`) w danym turnieju.
+  - Lista rund (dashboard turnieju / widoki kapitana): najpierw bieżąca runda, potem pozostałe posortowane malejąco po czasie utworzenia (najnowsza wyżej).
+  - Po MVP: kapitan może zmieniać kolejność rund na liście przez przeciąganie na dashboardzie turnieju; kolejność jest zachowywana (pole `sort_order` w modelu danych).

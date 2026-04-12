@@ -1,0 +1,25 @@
+---
+description: Supabase, Zod, and server-side data access — Astro routes and NestJS API
+globs: apps/web/src/db/**/*.ts,apps/web/src/middleware/**/*.ts,apps/web/src/lib/**/*.ts,apps/api/src/**/*.ts
+alwaysApply: false
+---
+
+### Backend and Database
+
+- Use Supabase for backend services, including authentication and database interactions.
+- Follow Supabase guidelines for security and performance.
+- Use Zod schemas to validate data exchanged with the backend.
+
+**Astro (when `apps/web` uses Astro route handlers):**
+
+- Use Supabase from `context.locals` in Astro routes instead of importing a global `supabaseClient` directly.
+- Use the `SupabaseClient` type from `src/db/supabase.client.ts` (path relative to the web app), not from `@supabase/supabase-js` for public typings at boundaries.
+
+**NestJS (`apps/api`):**
+
+- Inject and use `SupabaseService` from `apps/api/src/supabase/`; configure credentials via `@nestjs/config` / env. Do not instantiate ad-hoc clients with service role keys in controllers.
+- Shared Zod schemas live in `packages/schema` when the contract is shared with the web app or reused across modules.
+
+**Next.js / other web stacks:**
+
+- If routes live in Next.js instead of Astro, keep the same security model: server-only privileged clients, never expose service role to the browser; prefer patterns documented in `tech-stack.md`.
