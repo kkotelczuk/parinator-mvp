@@ -2,6 +2,8 @@
   "extends": "../../packages/config/tsconfig/nest.json",
   "compilerOptions": {
     "target": "ES2023",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "outDir": "./dist",
     "baseUrl": "./",
     "isolatedModules": true
