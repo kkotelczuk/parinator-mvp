@@ -539,3 +539,49 @@ export const offlineSyncListQuerySchema = paginationQuerySchema.extend({
 });
 
 export type OfflineSyncListQueryInput = z.infer<typeof offlineSyncListQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// 2.14 Import and fallback workflow
+// ---------------------------------------------------------------------------
+
+const importStatusEnum = z.enum(["success", "partial_success", "failed"]);
+const importRunSourceUrlSchema = z
+  .string()
+  .trim()
+  .min(1, "sourceUrl must not be empty")
+  .max(2048, "sourceUrl must be at most 2048 characters")
+  .url("sourceUrl must be a valid URL");
+
+export const importTournamentSchema = z.object({
+  sourceType: z.enum(["champions_hub", "best_coast_pairings"]),
+  sourceUrl: importRunSourceUrlSchema,
+  teamId: z.uuid("teamId must be a valid UUID."),
+});
+
+export type ImportTournamentInput = z.infer<typeof importTournamentSchema>;
+
+export const importTournamentFallbackSchema = z.object({
+  teamId: z.uuid("teamId must be a valid UUID."),
+  sourceUrl: importRunSourceUrlSchema.optional(),
+  rawText: z
+    .string()
+    .trim()
+    .min(1, "rawText must not be empty")
+    .max(100000, "rawText must be at most 100000 characters"),
+});
+
+export type ImportTournamentFallbackInput = z.infer<typeof importTournamentFallbackSchema>;
+
+export const importRunsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt"]).default("-createdAt"),
+  sourceType: importSourceEnum.optional(),
+  status: importStatusEnum.optional(),
+  sourceUrl: z
+    .string()
+    .trim()
+    .min(1, "sourceUrl must not be empty")
+    .max(2048, "sourceUrl must be at most 2048 characters")
+    .optional(),
+});
+
+export type ImportRunsListQueryInput = z.infer<typeof importRunsListQuerySchema>;

@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
+import { ImportsModule } from './imports/imports.module';
 import { JoinCodesModule } from './join-codes/join-codes.module';
 import { RoundsModule } from './rounds/rounds.module';
 import { TableAssetsModule } from './table-assets/table-assets.module';
@@ -17,6 +18,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     TeamsModule,
     TournamentsModule,
+    ImportsModule,
     JoinCodesModule,
     RoundsModule,
     TableAssetsModule,
