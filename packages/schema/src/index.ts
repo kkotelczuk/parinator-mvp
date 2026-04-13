@@ -485,3 +485,29 @@ export const patchPairingAssignmentResultSchema = z.object({
 });
 
 export type PatchPairingAssignmentResultInput = z.infer<typeof patchPairingAssignmentResultSchema>;
+
+// ---------------------------------------------------------------------------
+// 2.12 Estimator view
+// ---------------------------------------------------------------------------
+
+export const estimatorSessionsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt"]).default("-createdAt"),
+});
+
+export type EstimatorSessionsListQueryInput = z.infer<typeof estimatorSessionsListQuerySchema>;
+
+export const estimatorEventsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["eventOrder", "-eventOrder", "clickedAt", "-clickedAt"]).default("eventOrder"),
+});
+
+export type EstimatorEventsListQueryInput = z.infer<typeof estimatorEventsListQuerySchema>;
+
+export const appendEstimatorEventSchema = z.object({
+  actorMembershipId: z.uuid("actorMembershipId must be a valid UUID."),
+  tileLabel: z.string().trim().min(1, "tileLabel must not be empty").max(200, "tileLabel must be at most 200 characters"),
+  tileValue: z.number().int().min(0, "tileValue must be between 0 and 20").max(20, "tileValue must be between 0 and 20"),
+  eventOrder: z.number().int().min(1, "eventOrder must be at least 1"),
+  clickedAt: z.string().datetime("clickedAt must be a valid ISO datetime.").optional(),
+});
+
+export type AppendEstimatorEventInput = z.infer<typeof appendEstimatorEventSchema>;

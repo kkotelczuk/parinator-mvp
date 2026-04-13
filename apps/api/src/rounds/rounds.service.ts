@@ -9,11 +9,15 @@ import {
 } from '@nestjs/common';
 import type {
   ActivateRoundResponseDto,
+  AppendEstimatorEventCommand,
   CreatePairingRunCommand,
+  CreateEstimatorSessionResponseDto,
   CreateRoundCommand,
   Database,
   DeleteTablePreferenceResponseDto,
   DeletedSuccessDto,
+  EstimatorEventDto,
+  EstimatorSessionDto,
   FinalPairingsResponseDto,
   LockRoundResponseDto,
   MatrixCellDetailDto,
@@ -58,6 +62,8 @@ type TeamMembershipRow = Database['public']['Tables']['team_memberships']['Row']
 type PairingRunRow = Database['public']['Tables']['pairing_runs']['Row'];
 type PairingStepRow = Database['public']['Tables']['pairing_steps']['Row'];
 type PairingAssignmentRow = Database['public']['Tables']['pairing_assignments']['Row'];
+type EstimatorSessionRow = Database['public']['Tables']['estimator_sessions']['Row'];
+type EstimatorEventRow = Database['public']['Tables']['estimator_events']['Row'];
 
 type RoundsListParams = {
   actorUserId: string;
@@ -260,6 +266,33 @@ type PatchPairingAssignmentResultParams = {
   actorUserId: string;
   assignmentId: string;
   command: PatchPairingAssignmentResultCommand;
+};
+
+type EstimatorSessionsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'createdAt' | '-createdAt';
+};
+
+type CreateEstimatorSessionParams = {
+  actorUserId: string;
+  roundId: string;
+};
+
+type EstimatorEventsListParams = {
+  actorUserId: string;
+  sessionId: string;
+  page: number;
+  pageSize: number;
+  sort: 'eventOrder' | '-eventOrder' | 'clickedAt' | '-clickedAt';
+};
+
+type AppendEstimatorEventParams = {
+  actorUserId: string;
+  sessionId: string;
+  command: AppendEstimatorEventCommand;
 };
 
 type CreateRoundOpponentCommand = {
@@ -1346,6 +1379,109 @@ export class RoundsService {
     };
   }
 
+  /** Create estimator session for round (captain). */
+  async createEstimatorSession(params: CreateEstimatorSessionParams): Promise<CreateEstimatorSessionResponseDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const tournament = await this.fetchTournamentOrFail(round.tournament_id);
+    const captainMembershipId = await this.resolveCaptainMembership(params.actorUserId, tournament.team_id);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('estimator_sessions')
+      .insert({
+        round_id: round.id,
+        created_by_membership_id: captainMembershipId,
+      })
+      .select('id, round_id, created_by_membership_id, created_at')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Estimator session data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to create estimator session', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapEstimatorSessionRow(data);
+  }
+
+  /** List estimator sessions for round. */
+  async listEstimatorSessions(params: EstimatorSessionsListParams): Promise<PaginatedListDto<EstimatorSessionDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveEstimatorSessionsSort(params.sort);
+    const { data, error, count } = await this.supabaseService
+      .getClient()
+      .from('estimator_sessions')
+      .select('id, round_id, created_by_membership_id, created_at', { count: 'exact' })
+      .eq('round_id', round.id)
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list estimator sessions', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapEstimatorSessionRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
+  /** List estimator click events for session. */
+  async listEstimatorEvents(params: EstimatorEventsListParams): Promise<PaginatedListDto<EstimatorEventDto>> {
+    const session = await this.fetchEstimatorSessionWithAccess(params.actorUserId, params.sessionId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveEstimatorEventsSort(params.sort);
+    const { data, error, count } = await this.supabaseService
+      .getClient()
+      .from('estimator_events')
+      .select('id, actor_membership_id, tile_label, tile_value, event_order, clicked_at', { count: 'exact' })
+      .eq('session_id', session.id)
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list estimator events', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapEstimatorEventRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
+  /** Append estimator click event to session (captain). */
+  async appendEstimatorEvent(params: AppendEstimatorEventParams): Promise<EstimatorEventDto> {
+    const session = await this.fetchEstimatorSessionOrFail(params.sessionId);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, session.round_id);
+    this.ensureRoundEditable(round);
+    const insertPayload: Database['public']['Tables']['estimator_events']['Insert'] = {
+      session_id: session.id,
+      actor_membership_id: params.command.actorMembershipId,
+      tile_label: params.command.tileLabel,
+      tile_value: params.command.tileValue,
+      event_order: params.command.eventOrder,
+    };
+    if (params.command.clickedAt !== undefined) {
+      insertPayload.clicked_at = params.command.clickedAt;
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('estimator_events')
+      .insert(insertPayload)
+      .select('id, actor_membership_id, tile_label, tile_value, event_order, clicked_at')
+      .single();
+    if (error || !data) {
+      if (this.isUniqueViolation(error)) {
+        throw this.createDuplicateEventOrderException();
+      }
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Estimator event data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to append estimator event', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapEstimatorEventRow(data);
+  }
+
   // -------------------------------------------------------------------------
   // Access control helpers
   // -------------------------------------------------------------------------
@@ -1380,6 +1516,12 @@ export class RoundsService {
     const pairingRun = await this.fetchPairingRunOrFail(pairingRunId);
     await this.fetchRoundWithAccess(actorUserId, pairingRun.round_id);
     return pairingRun;
+  }
+
+  private async fetchEstimatorSessionWithAccess(actorUserId: string, sessionId: string): Promise<EstimatorSessionRow> {
+    const session = await this.fetchEstimatorSessionOrFail(sessionId);
+    await this.fetchRoundWithAccess(actorUserId, session.round_id);
+    return session;
   }
 
   private async fetchTournamentOrFail(tournamentId: string): Promise<TournamentRow> {
@@ -1515,6 +1657,23 @@ export class RoundsService {
     }
     if (!data) {
       throw this.createAssignmentNotFoundException();
+    }
+    return data;
+  }
+
+  private async fetchEstimatorSessionOrFail(sessionId: string): Promise<EstimatorSessionRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('estimator_sessions')
+      .select('*')
+      .eq('id', sessionId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch estimator session', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createSessionNotFoundException();
     }
     return data;
   }
@@ -2020,6 +2179,24 @@ export class RoundsService {
     return mapping[sort] ?? { column: 'player_membership_id', ascending: true };
   }
 
+  private resolveEstimatorSessionsSort(sort: EstimatorSessionsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'created_at', ascending: false };
+  }
+
+  private resolveEstimatorEventsSort(sort: EstimatorEventsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      eventOrder: { column: 'event_order', ascending: true },
+      '-eventOrder': { column: 'event_order', ascending: false },
+      clickedAt: { column: 'clicked_at', ascending: true },
+      '-clickedAt': { column: 'clicked_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'event_order', ascending: true };
+  }
+
   // -------------------------------------------------------------------------
   // Conflict resolver for unique violations
   // -------------------------------------------------------------------------
@@ -2187,6 +2364,30 @@ export class RoundsService {
     };
   }
 
+  private mapEstimatorSessionRow(
+    row: Pick<EstimatorSessionRow, 'id' | 'round_id' | 'created_by_membership_id' | 'created_at'>,
+  ): EstimatorSessionDto {
+    return {
+      id: row.id,
+      roundId: row.round_id,
+      createdByMembershipId: row.created_by_membership_id,
+      createdAt: row.created_at,
+    };
+  }
+
+  private mapEstimatorEventRow(
+    row: Pick<EstimatorEventRow, 'id' | 'actor_membership_id' | 'tile_label' | 'tile_value' | 'event_order' | 'clicked_at'>,
+  ): EstimatorEventDto {
+    return {
+      id: row.id,
+      actorMembershipId: row.actor_membership_id,
+      tileLabel: row.tile_label,
+      tileValue: row.tile_value,
+      eventOrder: row.event_order,
+      clickedAt: row.clicked_at,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Pagination & error helpers
   // -------------------------------------------------------------------------
@@ -2247,6 +2448,12 @@ export class RoundsService {
     });
   }
 
+  private createSessionNotFoundException(): NotFoundException {
+    return new NotFoundException({
+      error: { code: 'SESSION_NOT_FOUND', message: 'Estimator session not found.', details: {} },
+    });
+  }
+
   private createFinalLiveRunNotFoundException(): NotFoundException {
     return new NotFoundException({
       error: { code: 'FINAL_LIVE_RUN_NOT_FOUND', message: 'Final live pairing run not found.', details: {} },
@@ -2284,6 +2491,12 @@ export class RoundsService {
   private createCannotDeleteFinalLiveRunException(): ConflictException {
     return new ConflictException({
       error: { code: 'CANNOT_DELETE_FINAL_LIVE_RUN', message: 'Final live pairing run cannot be deleted.', details: {} },
+    });
+  }
+
+  private createDuplicateEventOrderException(): ConflictException {
+    return new ConflictException({
+      error: { code: 'DUPLICATE_EVENT_ORDER', message: 'Event order must be unique in session.', details: {} },
     });
   }
 
