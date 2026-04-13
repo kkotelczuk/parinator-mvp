@@ -585,3 +585,23 @@ export const importRunsListQuerySchema = paginationQuerySchema.extend({
 });
 
 export type ImportRunsListQueryInput = z.infer<typeof importRunsListQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// 2.16 Explicit business-operation endpoints
+// ---------------------------------------------------------------------------
+
+export const hardResetSchema = z.object({
+  reason: z.string().trim().min(1, "reason must not be empty").max(100, "reason must be at most 100 characters"),
+});
+
+export type HardResetInput = z.infer<typeof hardResetSchema>;
+
+export const opponentTeamUpdateSchema = z.object({
+  opponentTeamName: z
+    .string()
+    .trim()
+    .min(1, "opponentTeamName must not be empty")
+    .max(200, "opponentTeamName must be at most 200 characters"),
+});
+
+export type OpponentTeamUpdateInput = z.infer<typeof opponentTeamUpdateSchema>;

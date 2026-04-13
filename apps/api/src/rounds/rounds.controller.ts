@@ -17,9 +17,11 @@ import {
   createPairingRunSchema,
   createOpponentSchema,
   estimationsListQuerySchema,
+  hardResetSchema,
   matrixCellsListQuerySchema,
   offlineSyncListQuerySchema,
   offlineSyncPushSchema,
+  opponentTeamUpdateSchema,
   opponentsListQuerySchema,
   pairingRunsListQuerySchema,
   patchRoundSchema,
@@ -37,6 +39,8 @@ import {
   type DeleteTablePreferenceResponseDto,
   type DeletedSuccessDto,
   type LockRoundResponseDto,
+  type HardResetCommand,
+  type HardResetResponseDto,
   type MatrixCellDetailDto,
   type MatrixCellDto,
   type MatchupEstimationDto,
@@ -44,6 +48,8 @@ import {
   type OfflineSyncPushResponseDto,
   type OfflineSyncSnapshotDto,
   type OpponentPlayerDto,
+  type OpponentTeamUpdateCommand,
+  type OpponentTeamUpdateResponseDto,
   type PaginatedListDto,
   type PairingRunDto,
   type PairingRunSummaryDto,
@@ -187,6 +193,40 @@ export class RoundsController {
   ): Promise<LockRoundResponseDto> {
     const validatedId = this.validateUuidParam(roundId, 'roundId');
     return this.roundsService.lockRound(userId, validatedId);
+  }
+
+  /** POST /api/v1/rounds/:roundId/hard-reset — Explicitly clear round operational data (captain). */
+  @Post(':roundId/hard-reset')
+  @HttpCode(HttpStatus.OK)
+  async hardResetRound(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Body() body: unknown,
+  ): Promise<HardResetResponseDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const command = this.validateHardReset(body);
+    return this.roundsService.hardResetRound({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      command,
+    });
+  }
+
+  /** POST /api/v1/rounds/:roundId/opponent-team — Set opponent team and trigger round reset (captain). */
+  @Post(':roundId/opponent-team')
+  @HttpCode(HttpStatus.OK)
+  async updateOpponentTeam(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Body() body: unknown,
+  ): Promise<OpponentTeamUpdateResponseDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const command = this.validateOpponentTeamUpdate(body);
+    return this.roundsService.updateOpponentTeam({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      command,
+    });
   }
 
   /** GET /api/v1/rounds/:roundId/opponents — List round opponents. */
@@ -587,6 +627,22 @@ export class RoundsController {
       throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
     }
     return { sortOrder: result.data.sortOrder };
+  }
+
+  private validateHardReset(body: unknown): HardResetCommand {
+    const result = hardResetSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return { reason: result.data.reason };
+  }
+
+  private validateOpponentTeamUpdate(body: unknown): OpponentTeamUpdateCommand {
+    const result = opponentTeamUpdateSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return { opponentTeamName: result.data.opponentTeamName };
   }
 
   private validateOpponentsListQuery(query: OpponentsQuery): {

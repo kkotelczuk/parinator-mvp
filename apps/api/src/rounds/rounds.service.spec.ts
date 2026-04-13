@@ -365,6 +365,159 @@ describe('RoundsService', () => {
     });
   });
 
+  describe('hardResetRound', () => {
+    it('should delete round operational data and return counters', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const pairingRunsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 2 },
+      });
+      const pairingRunsDeleteBuilder = createBuilder();
+      const estimationsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 5 },
+      });
+      const estimationsDeleteBuilder = createBuilder();
+      const preferencesCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 4 },
+      });
+      const preferencesDeleteBuilder = createBuilder();
+      const estimatorSessionsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 1 },
+      });
+      const estimatorSessionsDeleteBuilder = createBuilder();
+      const offlineSnapshotsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 1 },
+      });
+      const offlineSnapshotsDeleteBuilder = createBuilder();
+      const opponentsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 5 },
+      });
+      const opponentsDeleteBuilder = createBuilder();
+      const auditBuilder = createBuilder();
+      const tableCallCounts: Record<string, number> = {};
+      mockFrom.mockImplementation((table: string) => {
+        tableCallCounts[table] = (tableCallCounts[table] ?? 0) + 1;
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        if (table === 'pairing_runs') return tableCallCounts[table] === 1 ? pairingRunsCountBuilder : pairingRunsDeleteBuilder;
+        if (table === 'matchup_estimations') {
+          return tableCallCounts[table] === 1 ? estimationsCountBuilder : estimationsDeleteBuilder;
+        }
+        if (table === 'table_preferences') {
+          return tableCallCounts[table] === 1 ? preferencesCountBuilder : preferencesDeleteBuilder;
+        }
+        if (table === 'estimator_sessions') {
+          return tableCallCounts[table] === 1 ? estimatorSessionsCountBuilder : estimatorSessionsDeleteBuilder;
+        }
+        if (table === 'offline_sync_snapshots') {
+          return tableCallCounts[table] === 1 ? offlineSnapshotsCountBuilder : offlineSnapshotsDeleteBuilder;
+        }
+        if (table === 'opponent_players') {
+          return tableCallCounts[table] === 1 ? opponentsCountBuilder : opponentsDeleteBuilder;
+        }
+        if (table === 'audit_events') return auditBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.hardResetRound({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { reason: 'manual_reset' },
+      });
+      expect(actualResult).toEqual({
+        reset: true,
+        deleted: {
+          pairingRuns: 2,
+          estimations: 5,
+          preferences: 4,
+          offlineSnapshots: 1,
+          opponents: 5,
+        },
+      });
+      expect(auditBuilder.insert).toHaveBeenCalledWith(expect.objectContaining({
+        event_type: 'round_hard_reset',
+        metadata: {
+          reason: 'manual_reset',
+          deleted: actualResult.deleted,
+        },
+      }));
+    });
+
+    it('should throw ConflictException when round is locked', async () => {
+      const lockedRound = { ...mockRoundRow, status: 'locked', locked_at: '2025-01-15T00:00:00.000Z', locked_by_membership_id: mockMembershipId };
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: lockedRound, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        return createBuilder();
+      });
+      await expect(
+        service.hardResetRound({
+          actorUserId: mockUserId,
+          roundId: mockRoundId,
+          command: { reason: 'manual_reset' },
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('updateOpponentTeam', () => {
+    it('should update opponent team name and report triggered reset', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const updateBuilder = createBuilder({
+        singleResponse: {
+          data: { id: mockRoundId, opponent_team_name: 'Team Omega' },
+          error: null,
+          count: null,
+        },
+      });
+      let roundsCallCount = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        if (table === 'rounds') {
+          roundsCallCount++;
+          return roundsCallCount === 1 ? roundBuilder : updateBuilder;
+        }
+        return createBuilder();
+      });
+      const actualResult = await service.updateOpponentTeam({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { opponentTeamName: 'Team Omega' },
+      });
+      expect(actualResult).toEqual({
+        id: mockRoundId,
+        opponentTeamName: 'Team Omega',
+        hardResetTriggered: true,
+      });
+    });
+  });
+
   describe('patchRound', () => {
     it('should throw ConflictException when round is locked', async () => {
       const lockedRound = { ...mockRoundRow, status: 'locked', locked_at: '2025-01-15T00:00:00.000Z', locked_by_membership_id: mockMembershipId };

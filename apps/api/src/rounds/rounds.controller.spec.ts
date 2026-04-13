@@ -45,6 +45,21 @@ describe('RoundsController', () => {
       lockedAt: '2025-02-01T00:00:00.000Z',
       lockedByMembershipId: mockMembershipId,
     }),
+    hardResetRound: jest.fn().mockResolvedValue({
+      reset: true,
+      deleted: {
+        pairingRuns: 2,
+        estimations: 5,
+        preferences: 4,
+        offlineSnapshots: 1,
+        opponents: 5,
+      },
+    }),
+    updateOpponentTeam: jest.fn().mockResolvedValue({
+      id: mockRoundId,
+      opponentTeamName: 'Team Omega',
+      hardResetTriggered: true,
+    }),
     listOpponents: jest.fn().mockResolvedValue({
       data: [{
         id: mockOpponentId,
@@ -310,6 +325,44 @@ describe('RoundsController', () => {
       expect(actualResult.status).toBe('locked');
       expect(actualResult.lockedAt).toBeDefined();
       expect(mockRoundsService.lockRound).toHaveBeenCalledWith(mockUserId, mockRoundId);
+    });
+  });
+
+  describe('hardResetRound', () => {
+    it('should validate payload and call service', async () => {
+      const actualResult = await controller.hardResetRound(mockUserId, mockRoundId, { reason: 'manual_reset' });
+      expect(actualResult.reset).toBe(true);
+      expect(mockRoundsService.hardResetRound).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { reason: 'manual_reset' },
+      });
+    });
+
+    it('should reject empty reason', async () => {
+      await expect(
+        controller.hardResetRound(mockUserId, mockRoundId, { reason: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('updateOpponentTeam', () => {
+    it('should validate payload and call service', async () => {
+      const actualResult = await controller.updateOpponentTeam(mockUserId, mockRoundId, {
+        opponentTeamName: 'Team Omega',
+      });
+      expect(actualResult.hardResetTriggered).toBe(true);
+      expect(mockRoundsService.updateOpponentTeam).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { opponentTeamName: 'Team Omega' },
+      });
+    });
+
+    it('should reject empty opponent team name', async () => {
+      await expect(
+        controller.updateOpponentTeam(mockUserId, mockRoundId, { opponentTeamName: '' }),
+      ).rejects.toThrow(BadRequestException);
     });
   });
 

@@ -19,6 +19,9 @@ import type {
   EstimatorEventDto,
   EstimatorSessionDto,
   FinalPairingsResponseDto,
+  HardResetCommand,
+  HardResetDeletedCountsDto,
+  HardResetResponseDto,
   LockRoundResponseDto,
   MatrixCellDetailDto,
   MatrixCellDto,
@@ -27,6 +30,8 @@ import type {
   OfflineSyncPushResponseDto,
   OfflineSyncSnapshotDto,
   OpponentPlayerDto,
+  OpponentTeamUpdateCommand,
+  OpponentTeamUpdateResponseDto,
   PaginatedListDto,
   PairingAssignmentDto,
   PairingRunDto,
@@ -89,6 +94,18 @@ type PatchRoundParams = {
   actorUserId: string;
   roundId: string;
   command: PatchRoundCommand;
+};
+
+type HardResetRoundParams = {
+  actorUserId: string;
+  roundId: string;
+  command: HardResetCommand;
+};
+
+type UpdateOpponentTeamParams = {
+  actorUserId: string;
+  roundId: string;
+  command: OpponentTeamUpdateCommand;
 };
 
 type OpponentsListParams = {
@@ -535,6 +552,58 @@ export class RoundsService {
       status: data.status as 'locked',
       lockedAt: data.locked_at!,
       lockedByMembershipId: data.locked_by_membership_id!,
+    };
+  }
+
+  /** Explicitly hard-reset round operational data while keeping round metadata intact. */
+  async hardResetRound(params: HardResetRoundParams): Promise<HardResetResponseDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    const tournament = await this.fetchTournamentOrFail(round.tournament_id);
+    this.ensureTournamentActive(tournament);
+    this.ensureRoundEditable(round);
+    const deleted = await this.deleteRoundOperationalData(round.id);
+    await this.insertAuditEvent({
+      teamId: tournament.team_id,
+      tournamentId: tournament.id,
+      roundId: round.id,
+      actorUserId: params.actorUserId,
+      eventType: 'round_hard_reset',
+      metadata: {
+        reason: params.command.reason,
+        deleted,
+      },
+    });
+    return {
+      reset: true,
+      deleted,
+    };
+  }
+
+  /** Set opponent team name and rely on DB trigger to reset dependent round data when value changes. */
+  async updateOpponentTeam(params: UpdateOpponentTeamParams): Promise<OpponentTeamUpdateResponseDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    const tournament = await this.fetchTournamentOrFail(round.tournament_id);
+    this.ensureTournamentActive(tournament);
+    this.ensureRoundEditable(round);
+    const hasOpponentChanged = round.opponent_team_name !== params.command.opponentTeamName;
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('rounds')
+      .update({ opponent_team_name: params.command.opponentTeamName })
+      .eq('id', round.id)
+      .select('id, opponent_team_name')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error)) {
+        throw this.createValidationException('Round data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to update opponent team name', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      id: data.id,
+      opponentTeamName: data.opponent_team_name,
+      hardResetTriggered: hasOpponentChanged,
     };
   }
 
@@ -2178,6 +2247,7 @@ export class RoundsService {
     roundId: string;
     actorUserId: string;
     eventType: string;
+    metadata?: Database['public']['Tables']['audit_events']['Insert']['metadata'];
   }): Promise<void> {
     const { error } = await this.supabaseService
       .getClient()
@@ -2188,9 +2258,78 @@ export class RoundsService {
         round_id: params.roundId,
         actor_user_id: params.actorUserId,
         event_type: params.eventType,
+        metadata: params.metadata,
       });
     if (error) {
       this.logger.warn('Failed to insert audit event', error);
+    }
+  }
+
+  private async deleteRoundOperationalData(roundId: string): Promise<HardResetDeletedCountsDto> {
+    const pairingRuns = await this.countRowsByRoundId('pairing_runs', roundId);
+    const estimations = await this.countRowsByRoundId('matchup_estimations', roundId);
+    const preferences = await this.countRowsByRoundId('table_preferences', roundId);
+    const estimatorSessions = await this.countRowsByRoundId('estimator_sessions', roundId);
+    const offlineSnapshots = await this.countRowsByRoundId('offline_sync_snapshots', roundId);
+    const opponents = await this.countRowsByRoundId('opponent_players', roundId);
+    await this.deleteRowsByRoundId('pairing_runs', roundId);
+    await this.deleteRowsByRoundId('estimator_sessions', roundId);
+    await this.deleteRowsByRoundId('matchup_estimations', roundId);
+    await this.deleteRowsByRoundId('table_preferences', roundId);
+    await this.deleteRowsByRoundId('offline_sync_snapshots', roundId);
+    await this.deleteRowsByRoundId('opponent_players', roundId);
+    if (estimatorSessions > 0) {
+      this.logger.log(`Deleted ${estimatorSessions} estimator sessions during round hard reset.`);
+    }
+    return {
+      pairingRuns,
+      estimations,
+      preferences,
+      offlineSnapshots,
+      opponents,
+    };
+  }
+
+  private async countRowsByRoundId(
+    table:
+      | 'estimator_sessions'
+      | 'matchup_estimations'
+      | 'offline_sync_snapshots'
+      | 'opponent_players'
+      | 'pairing_runs'
+      | 'table_preferences',
+    roundId: string,
+  ): Promise<number> {
+    const { count, error } = await this.supabaseService
+      .getClient()
+      .from(table)
+      .select('id', { count: 'exact', head: true })
+      .eq('round_id', roundId);
+    if (error) {
+      this.logger.error(`Failed to count rows for ${table}`, error);
+      throw this.createInternalErrorException();
+    }
+    return count ?? 0;
+  }
+
+  private async deleteRowsByRoundId(
+    table:
+      | 'estimator_sessions'
+      | 'matchup_estimations'
+      | 'offline_sync_snapshots'
+      | 'opponent_players'
+      | 'pairing_runs'
+      | 'table_preferences',
+    roundId: string,
+  ): Promise<void> {
+    const { error } = await this.supabaseService
+      .getClient()
+      .from(table)
+      .delete()
+      .eq('round_id', roundId);
+    if (error) {
+      this.logger.error(`Failed to delete rows for ${table}`, error);
+      throw this.createInternalErrorException();
     }
   }
 
