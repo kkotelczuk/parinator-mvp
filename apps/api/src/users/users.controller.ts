@@ -6,14 +6,10 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import type { UserMeDto } from '@parinator/schema';
+import { patchUserMeSchema, type PatchUserMeInput, type UserMeDto } from '@parinator/schema';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
-
-interface PatchUserMeBody {
-  displayName?: unknown;
-}
 
 @Controller('users')
 @UseGuards(JwtAuthGuard)
@@ -30,41 +26,23 @@ export class UsersController {
   @Patch('me')
   async updateMe(
     @CurrentUserId() userId: string,
-    @Body() body: PatchUserMeBody,
+    @Body() body: unknown,
   ): Promise<UserMeDto> {
-    const displayName = this.validateDisplayName(body.displayName);
-    return this.usersService.updateDisplayName(userId, displayName);
+    const validatedBody = this.validateUpdateMePayload(body);
+    return this.usersService.updateDisplayName(userId, validatedBody.displayName);
   }
 
-  private validateDisplayName(value: unknown): string {
-    if (typeof value !== 'string') {
+  private validateUpdateMePayload(body: unknown): PatchUserMeInput {
+    const result = patchUserMeSchema.safeParse(body);
+    if (!result.success) {
       throw new BadRequestException({
         error: {
           code: 'VALIDATION_ERROR',
-          message: 'Display name must be a non-empty string.',
+          message: result.error.issues[0]?.message ?? 'Invalid payload.',
           details: {},
         },
       });
     }
-    const trimmed = value.trim();
-    if (trimmed.length === 0) {
-      throw new BadRequestException({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Display name must not be empty.',
-          details: {},
-        },
-      });
-    }
-    if (trimmed.length > 100) {
-      throw new BadRequestException({
-        error: {
-          code: 'VALIDATION_ERROR',
-          message: 'Display name must be at most 100 characters.',
-          details: {},
-        },
-      });
-    }
-    return trimmed;
+    return result.data;
   }
 }

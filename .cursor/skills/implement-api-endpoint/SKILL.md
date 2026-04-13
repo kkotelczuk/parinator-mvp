@@ -122,6 +122,7 @@ Wykonaj następujące kroki:
    - Handler z właściwym dekoratorem HTTP (`@Get`, `@Post`, itd.) i prefiksem modułu zgodnym z planem.
    - Parametry funkcji zgodnie z wejściem; DTO / parsowanie query.
    - Walidacja wejścia (Zod w `packages/schema` i/lub DTO NestJS) — zgodnie z planem.
+   - Dla endpointów mutujących (`POST`, `PATCH`, `PUT`, `DELETE` z body): przyjmuj `@Body() body: unknown` i waliduj przez `safeParse`; nie zakładaj, że `body` istnieje.
    - Logika w serwisie; kolejne kroki jak w planie wdrożenia.
    - Obsługa błędów na każdym etapie; format `{ error: { code, message, details } }` jak w [conventions.md](conventions.md).
    - Transformacje danych i struktura odpowiedzi sukcesu (lista + `pagination` jeśli dotyczy).
@@ -129,10 +130,12 @@ Wykonaj następujące kroki:
 3. **Walidacja i obsługa błędów**
    - Spójne kody HTTP (400, 401, 403, 404, 409, 429, 500) zgodnie z planem i semantyką.
    - Czytelne komunikaty w polu `message`; `code` jak w kontrakcie API.
+   - Nie dopuszczaj do błędów runtime typu `Cannot read properties of undefined` dla requestów z brakującym lub błędnym JSON; zwracaj kontrolowany `400 VALIDATION_ERROR`.
    - Przechwytywanie wyjątków z warstwy Supabase / DB bez wycieku wewnętrznych szczegółów.
 
 4. **Testowanie**
    - Rozważ przypadki brzegowe z planu; minimalnie happy path + reprezentatywny błąd (np. 400 lub 401).
+   - Dodaj przypadek z pustym/niepoprawnym body i potwierdź, że endpoint zwraca kontraktowy błąd walidacji zamiast wyjątku runtime.
 
 5. **Dokumentacja w kodzie**
    - JSDoc dla publicznych metod serwisu i kontrolera tam, gdzie logika jest nietrywialna (zgodnie z regułami NestJS w repo).

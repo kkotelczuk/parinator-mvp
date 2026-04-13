@@ -160,11 +160,11 @@ export type CreateMembershipCommand = {
   isPlaying: TeamMembershipRow["is_playing"];
 };
 
-export type PatchMembershipCommand = {
+export type PatchMembershipCommand = Partial<{
   role: TeamMembershipRow["role"];
   isPlaying: TeamMembershipRow["is_playing"];
   leftAt: TeamMembershipRow["left_at"];
-};
+}>;
 
 // ---------------------------------------------------------------------------
 // 2.4 Turnieje i skład
