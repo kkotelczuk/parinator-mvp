@@ -11,18 +11,24 @@ import type {
   ActivateRoundResponseDto,
   CreateRoundCommand,
   Database,
+  DeleteTablePreferenceResponseDto,
   DeletedSuccessDto,
   LockRoundResponseDto,
+  MatchupEstimationDto,
   OpponentPlayerDto,
   PaginatedListDto,
   PatchRoundCommand,
   PatchOpponentCommand,
+  PlayerEstimationStatusDto,
   PutRoundTablesCommand,
   PutRoundTablesResponseDto,
   ReorderRoundResponseDto,
   RoundTableDto,
   RoundDto,
   RoundSummaryDto,
+  TablePreferenceDto,
+  UpsertMatchupEstimationCommand,
+  UpsertTablePreferenceCommand,
 } from '@parinator/schema';
 import { SupabaseService } from '../supabase/supabase.service';
 
@@ -30,6 +36,9 @@ type RoundRow = Database['public']['Tables']['rounds']['Row'];
 type OpponentPlayerRow = Database['public']['Tables']['opponent_players']['Row'];
 type RoundTableRow = Database['public']['Tables']['round_tables']['Row'];
 type TournamentRow = Database['public']['Tables']['tournaments']['Row'];
+type MatchupEstimationRow = Database['public']['Tables']['matchup_estimations']['Row'];
+type TablePreferenceRow = Database['public']['Tables']['table_preferences']['Row'];
+type TeamMembershipRow = Database['public']['Tables']['team_memberships']['Row'];
 
 type RoundsListParams = {
   actorUserId: string;
@@ -94,6 +103,52 @@ type ReplaceTablesParams = {
   actorUserId: string;
   roundId: string;
   command: PutRoundTablesCommand;
+};
+
+type EstimationsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'createdAt' | '-createdAt' | 'updatedAt' | '-updatedAt';
+  playerMembershipId?: string;
+  opponentPlayerId?: string;
+};
+
+type UpsertEstimationParams = {
+  actorUserId: string;
+  roundId: string;
+  opponentPlayerId: string;
+  command: UpsertMatchupEstimationCommand;
+};
+
+type DeleteEstimationParams = {
+  actorUserId: string;
+  roundId: string;
+  estimationId: string;
+};
+
+type TablePreferencesListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'createdAt' | '-createdAt' | 'updatedAt' | '-updatedAt';
+  playerMembershipId?: string;
+  roundTableId?: string;
+};
+
+type UpsertTablePreferenceParams = {
+  actorUserId: string;
+  roundId: string;
+  roundTableId: string;
+  command: UpsertTablePreferenceCommand;
+};
+
+type DeleteTablePreferenceParams = {
+  actorUserId: string;
+  roundId: string;
+  roundTableId: string;
 };
 
 type CreateRoundOpponentCommand = {
@@ -525,6 +580,207 @@ export class RoundsService {
     return { data: data.map((row) => this.mapRoundTableRow(row)) };
   }
 
+  /** List matchup estimations with player completion visibility gating. */
+  async listEstimations(params: EstimationsListParams): Promise<PaginatedListDto<MatchupEstimationDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const membership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    const isCaptain = membership.role === 'captain';
+    const hasCompleted = isCaptain
+      ? true
+      : await this.checkMembershipCompletedEstimations(round.id, membership.id);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveEstimationsSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select(
+        'id, player_membership_id, opponent_player_id, list_opened_at, has_first_turn_impact, score_single, score_go_first, score_go_second, comment',
+        { count: 'exact' },
+      )
+      .eq('round_id', round.id);
+    if (!isCaptain && !hasCompleted) {
+      query = query.eq('player_membership_id', membership.id);
+    }
+    if (params.playerMembershipId) {
+      query = query.eq('player_membership_id', params.playerMembershipId);
+    }
+    if (params.opponentPlayerId) {
+      query = query.eq('opponent_player_id', params.opponentPlayerId);
+    }
+    const { data, error, count } = await query
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list estimations', error);
+      throw this.createInternalErrorException();
+    }
+    const total = count ?? 0;
+    return {
+      data: data.map((row) => this.mapMatchupEstimationRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, total),
+    };
+  }
+
+  /** Upsert current player estimation for a round opponent. */
+  async upsertEstimation(params: UpsertEstimationParams): Promise<MatchupEstimationDto> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const membership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    this.ensurePlayerMembership(membership);
+    await this.ensureOpponentBelongsToRound(params.roundId, params.opponentPlayerId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .upsert(
+        {
+          round_id: round.id,
+          player_membership_id: membership.id,
+          opponent_player_id: params.opponentPlayerId,
+          list_opened_at: params.command.listOpenedAt,
+          has_first_turn_impact: params.command.hasFirstTurnImpact,
+          score_single: params.command.scoreSingle,
+          score_go_first: params.command.scoreGoFirst,
+          score_go_second: params.command.scoreGoSecond,
+          comment: params.command.comment,
+        },
+        { onConflict: 'round_id,player_membership_id,opponent_player_id' },
+      )
+      .select(
+        'id, player_membership_id, opponent_player_id, list_opened_at, has_first_turn_impact, score_single, score_go_first, score_go_second, comment',
+      )
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Estimation data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to upsert estimation', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapMatchupEstimationRow(data);
+  }
+
+  /** Delete estimation row in a round (captain only). */
+  async deleteEstimation(params: DeleteEstimationParams): Promise<DeletedSuccessDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const estimation = await this.fetchEstimationOrFail(params.roundId, params.estimationId);
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .delete()
+      .eq('id', estimation.id)
+      .eq('round_id', params.roundId);
+    if (error) {
+      this.logger.error('Failed to delete estimation', error);
+      throw this.createInternalErrorException();
+    }
+    return { deleted: true };
+  }
+
+  /** List table preference rows for a round. */
+  async listTablePreferences(params: TablePreferencesListParams): Promise<PaginatedListDto<TablePreferenceDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveTablePreferencesSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .select('id, player_membership_id, round_table_id, preference', { count: 'exact' })
+      .eq('round_id', round.id);
+    if (params.playerMembershipId) {
+      query = query.eq('player_membership_id', params.playerMembershipId);
+    }
+    if (params.roundTableId) {
+      query = query.eq('round_table_id', params.roundTableId);
+    }
+    const { data, error, count } = await query
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list table preferences', error);
+      throw this.createInternalErrorException();
+    }
+    const total = count ?? 0;
+    return {
+      data: data.map((row) => this.mapTablePreferenceRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, total),
+    };
+  }
+
+  /** Upsert current player table preference for a round table. */
+  async upsertTablePreference(params: UpsertTablePreferenceParams): Promise<TablePreferenceDto> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const membership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    this.ensurePlayerMembership(membership);
+    await this.ensureRoundTableBelongsToRound(params.roundId, params.roundTableId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .upsert(
+        {
+          round_id: params.roundId,
+          player_membership_id: membership.id,
+          round_table_id: params.roundTableId,
+          preference: params.command.preference,
+        },
+        { onConflict: 'round_id,player_membership_id,round_table_id' },
+      )
+      .select('id, player_membership_id, round_table_id, preference')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Table preference data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to upsert table preference', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapTablePreferenceRow(data);
+  }
+
+  /** Delete current player table preference row for a table. */
+  async deleteTablePreference(params: DeleteTablePreferenceParams): Promise<DeleteTablePreferenceResponseDto> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const membership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    if (membership.role !== 'player') {
+      throw this.createForbiddenException();
+    }
+    const preference = await this.fetchTablePreferenceOrFail({
+      roundId: params.roundId,
+      roundTableId: params.roundTableId,
+      playerMembershipId: membership.id,
+    });
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .delete()
+      .eq('id', preference.id)
+      .eq('round_id', params.roundId);
+    if (error) {
+      this.logger.error('Failed to delete table preference', error);
+      throw this.createInternalErrorException();
+    }
+    return { deleted: true, interpretedAs: 'neutral' };
+  }
+
+  /** Return estimation completion status for current player in round. */
+  async getMyEstimationStatus(actorUserId: string, roundId: string): Promise<PlayerEstimationStatusDto> {
+    const round = await this.fetchRoundWithAccess(actorUserId, roundId);
+    const membership = await this.resolveActiveMembership(actorUserId, round.tournament_id);
+    if (membership.role !== 'player') {
+      throw this.createForbiddenException();
+    }
+    const opponentCount = await this.countOpponentsForRound(round.id);
+    const myEstimationsCount = await this.countEstimationsForMembership(round.id, membership.id);
+    const completed = await this.checkMembershipCompletedEstimations(round.id, membership.id);
+    return {
+      completed,
+      opponentCount,
+      myEstimationsCount,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Access control helpers
   // -------------------------------------------------------------------------
@@ -613,6 +869,51 @@ export class RoundsService {
     return data;
   }
 
+  private async fetchEstimationOrFail(roundId: string, estimationId: string): Promise<MatchupEstimationRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select('*')
+      .eq('id', estimationId)
+      .eq('round_id', roundId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch estimation', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw new NotFoundException({
+        error: { code: 'ESTIMATION_NOT_FOUND', message: 'Estimation not found.', details: {} },
+      });
+    }
+    return data;
+  }
+
+  private async fetchTablePreferenceOrFail(params: {
+    roundId: string;
+    roundTableId: string;
+    playerMembershipId: string;
+  }): Promise<TablePreferenceRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .select('*')
+      .eq('round_id', params.roundId)
+      .eq('round_table_id', params.roundTableId)
+      .eq('player_membership_id', params.playerMembershipId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch table preference', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw new NotFoundException({
+        error: { code: 'PREFERENCE_NOT_FOUND', message: 'Table preference not found.', details: {} },
+      });
+    }
+    return data;
+  }
+
   private async ensureTeamMember(actorUserId: string, teamId: string): Promise<void> {
     const { data, error } = await this.supabaseService
       .getClient()
@@ -645,6 +946,22 @@ export class RoundsService {
       throw this.createForbiddenException();
     }
     return data.id;
+  }
+
+  private async resolveActiveMembership(actorUserId: string, tournamentId: string): Promise<TeamMembershipRow> {
+    const tournament = await this.fetchTournamentOrFail(tournamentId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('team_memberships')
+      .select('*')
+      .eq('team_id', tournament.team_id)
+      .eq('user_id', actorUserId)
+      .is('left_at', null)
+      .single();
+    if (error || !data) {
+      throw this.createForbiddenException();
+    }
+    return data;
   }
 
   // -------------------------------------------------------------------------
@@ -692,6 +1009,84 @@ export class RoundsService {
         error: { code: 'DUPLICATE_TABLE_NO', message: 'Table number must be unique in request payload.', details: {} },
       });
     }
+  }
+
+  private ensurePlayerMembership(membership: TeamMembershipRow): void {
+    if (membership.role !== 'player') {
+      throw this.createOnlyPlayerRoleAllowedException();
+    }
+  }
+
+  private async ensureOpponentBelongsToRound(roundId: string, opponentPlayerId: string): Promise<void> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .select('id')
+      .eq('id', opponentPlayerId)
+      .eq('round_id', roundId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to validate opponent for round', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createValidationException('Opponent does not belong to this round.');
+    }
+  }
+
+  private async ensureRoundTableBelongsToRound(roundId: string, roundTableId: string): Promise<void> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('round_tables')
+      .select('id')
+      .eq('id', roundTableId)
+      .eq('round_id', roundId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to validate table for round', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createValidationException('Round table does not belong to this round.');
+    }
+  }
+
+  private async countOpponentsForRound(roundId: string): Promise<number> {
+    const { count, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .select('id', { count: 'exact', head: true })
+      .eq('round_id', roundId);
+    if (error) {
+      this.logger.error('Failed to count opponents', error);
+      throw this.createInternalErrorException();
+    }
+    return count ?? 0;
+  }
+
+  private async countEstimationsForMembership(roundId: string, membershipId: string): Promise<number> {
+    const { count, error } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select('id', { count: 'exact', head: true })
+      .eq('round_id', roundId)
+      .eq('player_membership_id', membershipId);
+    if (error) {
+      this.logger.error('Failed to count estimations', error);
+      throw this.createInternalErrorException();
+    }
+    return count ?? 0;
+  }
+
+  private async checkMembershipCompletedEstimations(roundId: string, membershipId: string): Promise<boolean> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .rpc('has_completed_round_estimations', { _membership_id: membershipId, _round_id: roundId });
+    if (error) {
+      this.logger.error('Failed to check completed estimations', error);
+      throw this.createInternalErrorException();
+    }
+    return Boolean(data);
   }
 
   // -------------------------------------------------------------------------
@@ -754,6 +1149,26 @@ export class RoundsService {
       '-createdAt': { column: 'created_at', ascending: false },
     };
     return mapping[sort] ?? { column: 'table_no', ascending: true };
+  }
+
+  private resolveEstimationsSort(sort: EstimationsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+      updatedAt: { column: 'updated_at', ascending: true },
+      '-updatedAt': { column: 'updated_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'created_at', ascending: false };
+  }
+
+  private resolveTablePreferencesSort(sort: TablePreferencesListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+      updatedAt: { column: 'updated_at', ascending: true },
+      '-updatedAt': { column: 'updated_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'created_at', ascending: false };
   }
 
   // -------------------------------------------------------------------------
@@ -834,6 +1249,44 @@ export class RoundsService {
     };
   }
 
+  private mapMatchupEstimationRow(
+    row: Pick<
+      MatchupEstimationRow,
+      | 'id'
+      | 'player_membership_id'
+      | 'opponent_player_id'
+      | 'list_opened_at'
+      | 'has_first_turn_impact'
+      | 'score_single'
+      | 'score_go_first'
+      | 'score_go_second'
+      | 'comment'
+    >,
+  ): MatchupEstimationDto {
+    return {
+      id: row.id,
+      playerMembershipId: row.player_membership_id,
+      opponentPlayerId: row.opponent_player_id,
+      listOpenedAt: row.list_opened_at,
+      hasFirstTurnImpact: row.has_first_turn_impact,
+      scoreSingle: row.score_single,
+      scoreGoFirst: row.score_go_first,
+      scoreGoSecond: row.score_go_second,
+      comment: row.comment,
+    };
+  }
+
+  private mapTablePreferenceRow(
+    row: Pick<TablePreferenceRow, 'id' | 'player_membership_id' | 'round_table_id' | 'preference'>,
+  ): TablePreferenceDto {
+    return {
+      id: row.id,
+      playerMembershipId: row.player_membership_id,
+      roundTableId: row.round_table_id,
+      preference: row.preference,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Pagination & error helpers
   // -------------------------------------------------------------------------
@@ -867,6 +1320,12 @@ export class RoundsService {
   private createForbiddenException(): ForbiddenException {
     return new ForbiddenException({
       error: { code: 'FORBIDDEN', message: 'Operation is forbidden.', details: {} },
+    });
+  }
+
+  private createOnlyPlayerRoleAllowedException(): ForbiddenException {
+    return new ForbiddenException({
+      error: { code: 'ONLY_PLAYER_ROLE_ALLOWED', message: 'Only player role can perform this action.', details: {} },
     });
   }
 

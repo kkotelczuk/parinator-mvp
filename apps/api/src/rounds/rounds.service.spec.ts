@@ -109,15 +109,17 @@ const mockRoundTableRow = {
 describe('RoundsService', () => {
   let service: RoundsService;
   let mockFrom: jest.Mock;
+  let mockRpc: jest.Mock;
 
   beforeEach(async () => {
     mockFrom = jest.fn();
+    mockRpc = jest.fn().mockResolvedValue({ data: true, error: null });
     const module: TestingModule = await Test.createTestingModule({
       providers: [
         RoundsService,
         {
           provide: SupabaseService,
-          useValue: { getClient: () => ({ from: mockFrom }) },
+          useValue: { getClient: () => ({ from: mockFrom, rpc: mockRpc }) },
         },
       ],
     }).compile();
@@ -537,6 +539,135 @@ describe('RoundsService', () => {
       });
       expect(actualResult.data[0]?.tableNo).toBe(1);
       expect(actualResult.data[0]?.tableName).toBe('Top table');
+    });
+  });
+
+  describe('upsertEstimation', () => {
+    it('should throw ForbiddenException when actor is not player', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const memberBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const activeMembershipBuilder = createBuilder({
+        singleResponse: {
+          data: {
+            id: mockMembershipId,
+            team_id: mockTeamId,
+            user_id: mockUserId,
+            role: 'captain',
+            is_playing: false,
+            joined_at: '2025-01-01T00:00:00.000Z',
+            left_at: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+          },
+          error: null,
+          count: null,
+        },
+      });
+      const opponentBuilder = createBuilder({
+        maybeSingleResponse: { data: { id: mockOpponentRow.id }, error: null, count: null },
+      });
+      let tournamentCalls = 0;
+      let membershipCalls = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') {
+          tournamentCalls++;
+          return tournamentBuilder;
+        }
+        if (table === 'team_memberships') {
+          membershipCalls++;
+          return membershipCalls === 1 ? memberBuilder : activeMembershipBuilder;
+        }
+        if (table === 'opponent_players') return opponentBuilder;
+        return createBuilder();
+      });
+      await expect(
+        service.upsertEstimation({
+          actorUserId: mockUserId,
+          roundId: mockRoundId,
+          opponentPlayerId: mockOpponentRow.id,
+          command: {
+            listOpenedAt: '2025-01-01T00:00:00.000Z',
+            hasFirstTurnImpact: false,
+            scoreSingle: 10,
+            scoreGoFirst: null,
+            scoreGoSecond: null,
+            comment: null,
+          },
+        }),
+      ).rejects.toThrow(ForbiddenException);
+      expect(tournamentCalls).toBeGreaterThan(0);
+    });
+  });
+
+  describe('getMyEstimationStatus', () => {
+    it('should return completion summary for player', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const memberBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const activeMembershipBuilder = createBuilder({
+        singleResponse: {
+          data: {
+            id: mockMembershipId,
+            team_id: mockTeamId,
+            user_id: mockUserId,
+            role: 'player',
+            is_playing: true,
+            joined_at: '2025-01-01T00:00:00.000Z',
+            left_at: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+          },
+          error: null,
+          count: null,
+        },
+      });
+      const opponentsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 5 },
+      });
+      const estimationsCountBuilder = createBuilder({
+        defaultResponse: { data: null, error: null, count: 5 },
+      });
+      let teamMembershipCalls = 0;
+      let tournamentsCalls = 0;
+      let matchupCalls = 0;
+      let opponentsCalls = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') {
+          tournamentsCalls++;
+          return tournamentBuilder;
+        }
+        if (table === 'team_memberships') {
+          teamMembershipCalls++;
+          return teamMembershipCalls === 1 ? memberBuilder : activeMembershipBuilder;
+        }
+        if (table === 'opponent_players') {
+          opponentsCalls++;
+          return opponentsCountBuilder;
+        }
+        if (table === 'matchup_estimations') {
+          matchupCalls++;
+          return estimationsCountBuilder;
+        }
+        return createBuilder();
+      });
+      const actualResult = await service.getMyEstimationStatus(mockUserId, mockRoundId);
+      expect(actualResult).toEqual({ completed: true, opponentCount: 5, myEstimationsCount: 5 });
+      expect(tournamentsCalls).toBeGreaterThan(0);
+      expect(matchupCalls).toBe(1);
+      expect(opponentsCalls).toBe(1);
     });
   });
 });

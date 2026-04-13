@@ -10,6 +10,7 @@ const mockRoundId = '990e8400-e29b-41d4-a716-446655440000';
 const mockMembershipId = '770e8400-e29b-41d4-a716-446655440000';
 const mockOpponentId = '890e8400-e29b-41d4-a716-446655440000';
 const mockTableId = '980e8400-e29b-41d4-a716-446655440000';
+const mockEstimationId = '780e8400-e29b-41d4-a716-446655440000';
 
 const mockRoundDto = {
   id: mockRoundId,
@@ -86,6 +87,49 @@ describe('RoundsController', () => {
         imageAssetId: null,
       }],
     }),
+    listEstimations: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockEstimationId,
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: mockOpponentId,
+        listOpenedAt: '2025-01-01T00:00:00.000Z',
+        hasFirstTurnImpact: false,
+        scoreSingle: 10,
+        scoreGoFirst: null,
+        scoreGoSecond: null,
+        comment: null,
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    upsertEstimation: jest.fn().mockResolvedValue({
+      id: mockEstimationId,
+      playerMembershipId: mockMembershipId,
+      opponentPlayerId: mockOpponentId,
+      listOpenedAt: '2025-01-01T00:00:00.000Z',
+      hasFirstTurnImpact: false,
+      scoreSingle: 10,
+      scoreGoFirst: null,
+      scoreGoSecond: null,
+      comment: null,
+    }),
+    deleteEstimation: jest.fn().mockResolvedValue({ deleted: true }),
+    listTablePreferences: jest.fn().mockResolvedValue({
+      data: [{
+        id: '670e8400-e29b-41d4-a716-446655440000',
+        playerMembershipId: mockMembershipId,
+        roundTableId: mockTableId,
+        preference: 'preferred',
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    upsertTablePreference: jest.fn().mockResolvedValue({
+      id: '670e8400-e29b-41d4-a716-446655440000',
+      playerMembershipId: mockMembershipId,
+      roundTableId: mockTableId,
+      preference: 'preferred',
+    }),
+    deleteTablePreference: jest.fn().mockResolvedValue({ deleted: true, interpretedAs: 'neutral' }),
+    getMyEstimationStatus: jest.fn().mockResolvedValue({ completed: true, opponentCount: 5, myEstimationsCount: 5 }),
   };
 
   beforeEach(async () => {
@@ -275,6 +319,60 @@ describe('RoundsController', () => {
         roundId: mockRoundId,
         command: { tables: [{ tableNo: 1, tableName: 'Top table', imageAssetId: null }] },
       });
+    });
+  });
+
+  describe('listEstimations', () => {
+    it('should parse filters and call service', async () => {
+      const actualResult = await controller.listEstimations(mockUserId, mockRoundId, { 'filter[playerMembershipId]': mockMembershipId });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listEstimations).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: '-createdAt',
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: undefined,
+      });
+    });
+  });
+
+  describe('upsertEstimation', () => {
+    it('should validate payload and call service', async () => {
+      await controller.upsertEstimation(mockUserId, mockRoundId, mockOpponentId, {
+        listOpenedAt: '2025-01-01T00:00:00.000Z',
+        hasFirstTurnImpact: false,
+        scoreSingle: 10,
+        scoreGoFirst: null,
+        scoreGoSecond: null,
+        comment: null,
+      });
+      expect(mockRoundsService.upsertEstimation).toHaveBeenCalled();
+    });
+  });
+
+  describe('listTablePreferences', () => {
+    it('should parse filters and call service', async () => {
+      const actualResult = await controller.listTablePreferences(mockUserId, mockRoundId, { 'filter[roundTableId]': mockTableId });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listTablePreferences).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: '-createdAt',
+        playerMembershipId: undefined,
+        roundTableId: mockTableId,
+      });
+    });
+  });
+
+  describe('getMyEstimationStatus', () => {
+    it('should return completion status', async () => {
+      const actualResult = await controller.getMyEstimationStatus(mockUserId, mockRoundId);
+      expect(actualResult.completed).toBe(true);
+      expect(mockRoundsService.getMyEstimationStatus).toHaveBeenCalledWith(mockUserId, mockRoundId);
     });
   });
 });

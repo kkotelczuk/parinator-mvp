@@ -15,26 +15,36 @@ import {
 } from '@nestjs/common';
 import {
   createOpponentSchema,
+  estimationsListQuerySchema,
   opponentsListQuerySchema,
   patchRoundSchema,
   patchOpponentSchema,
   putRoundTablesSchema,
   reorderRoundSchema,
+  tablePreferencesListQuerySchema,
   tablesListQuerySchema,
+  upsertMatchupEstimationSchema,
+  upsertTablePreferenceSchema,
   uuidParamSchema,
   type ActivateRoundResponseDto,
   type CreateOpponentCommand,
+  type DeleteTablePreferenceResponseDto,
   type DeletedSuccessDto,
   type LockRoundResponseDto,
+  type MatchupEstimationDto,
   type OpponentPlayerDto,
   type PaginatedListDto,
   type PatchRoundCommand,
   type PatchOpponentCommand,
+  type PlayerEstimationStatusDto,
   type PutRoundTablesCommand,
   type PutRoundTablesResponseDto,
   type ReorderRoundResponseDto,
   type RoundDto,
   type RoundTableDto,
+  type TablePreferenceDto,
+  type UpsertMatchupEstimationCommand,
+  type UpsertTablePreferenceCommand,
 } from '@parinator/schema';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
@@ -52,6 +62,22 @@ type TablesQuery = {
   pageSize?: string;
   sort?: string;
   'filter[tableNo]'?: string;
+};
+
+type EstimationsQuery = {
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  'filter[playerMembershipId]'?: string;
+  'filter[opponentPlayerId]'?: string;
+};
+
+type TablePreferencesQuery = {
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  'filter[playerMembershipId]'?: string;
+  'filter[roundTableId]'?: string;
 };
 
 @Controller('rounds')
@@ -226,6 +252,126 @@ export class RoundsController {
     });
   }
 
+  /** GET /api/v1/rounds/:roundId/estimations — List matchup estimations with visibility rules. */
+  @Get(':roundId/estimations')
+  async listEstimations(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: EstimationsQuery,
+  ): Promise<PaginatedListDto<MatchupEstimationDto>> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validateEstimationsListQuery(query);
+    return this.roundsService.listEstimations({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      page: validatedQuery.page,
+      pageSize: validatedQuery.pageSize,
+      sort: validatedQuery.sort,
+      playerMembershipId: validatedQuery.playerMembershipId,
+      opponentPlayerId: validatedQuery.opponentPlayerId,
+    });
+  }
+
+  /** PUT /api/v1/rounds/:roundId/estimations/:opponentPlayerId — Upsert own estimation row (player). */
+  @Put(':roundId/estimations/:opponentPlayerId')
+  async upsertEstimation(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Param('opponentPlayerId') opponentPlayerId: string,
+    @Body() body: unknown,
+  ): Promise<MatchupEstimationDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedOpponentPlayerId = this.validateUuidParam(opponentPlayerId, 'opponentPlayerId');
+    const command = this.validateUpsertEstimation(body);
+    return this.roundsService.upsertEstimation({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      opponentPlayerId: validatedOpponentPlayerId,
+      command,
+    });
+  }
+
+  /** DELETE /api/v1/rounds/:roundId/estimations/:estimationId — Delete estimation row (captain). */
+  @Delete(':roundId/estimations/:estimationId')
+  async deleteEstimation(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Param('estimationId') estimationId: string,
+  ): Promise<DeletedSuccessDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedEstimationId = this.validateUuidParam(estimationId, 'estimationId');
+    return this.roundsService.deleteEstimation({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      estimationId: validatedEstimationId,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/table-preferences — List stored table preference rows. */
+  @Get(':roundId/table-preferences')
+  async listTablePreferences(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: TablePreferencesQuery,
+  ): Promise<PaginatedListDto<TablePreferenceDto>> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validateTablePreferencesListQuery(query);
+    return this.roundsService.listTablePreferences({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      page: validatedQuery.page,
+      pageSize: validatedQuery.pageSize,
+      sort: validatedQuery.sort,
+      playerMembershipId: validatedQuery.playerMembershipId,
+      roundTableId: validatedQuery.roundTableId,
+    });
+  }
+
+  /** PUT /api/v1/rounds/:roundId/table-preferences/:roundTableId — Upsert own table preference (player). */
+  @Put(':roundId/table-preferences/:roundTableId')
+  async upsertTablePreference(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Param('roundTableId') roundTableId: string,
+    @Body() body: unknown,
+  ): Promise<TablePreferenceDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedRoundTableId = this.validateUuidParam(roundTableId, 'roundTableId');
+    const command = this.validateUpsertTablePreference(body);
+    return this.roundsService.upsertTablePreference({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      roundTableId: validatedRoundTableId,
+      command,
+    });
+  }
+
+  /** DELETE /api/v1/rounds/:roundId/table-preferences/:roundTableId — Delete own preference row. */
+  @Delete(':roundId/table-preferences/:roundTableId')
+  async deleteTablePreference(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Param('roundTableId') roundTableId: string,
+  ): Promise<DeleteTablePreferenceResponseDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedRoundTableId = this.validateUuidParam(roundTableId, 'roundTableId');
+    return this.roundsService.deleteTablePreference({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      roundTableId: validatedRoundTableId,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/estimation-status/me — Return current player estimation completion status. */
+  @Get(':roundId/estimation-status/me')
+  async getMyEstimationStatus(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+  ): Promise<PlayerEstimationStatusDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    return this.roundsService.getMyEstimationStatus(userId, validatedRoundId);
+  }
+
   // -------------------------------------------------------------------------
   // Validation helpers
   // -------------------------------------------------------------------------
@@ -334,6 +480,69 @@ export class RoundsController {
         imageAssetId: table.imageAssetId ?? null,
       })),
     };
+  }
+
+  private validateEstimationsListQuery(query: EstimationsQuery): {
+    page: number;
+    pageSize: number;
+    sort: 'createdAt' | '-createdAt' | 'updatedAt' | '-updatedAt';
+    playerMembershipId?: string;
+    opponentPlayerId?: string;
+  } {
+    const result = estimationsListQuerySchema.safeParse({
+      page: query.page,
+      pageSize: query.pageSize,
+      sort: query.sort,
+      playerMembershipId: query['filter[playerMembershipId]'],
+      opponentPlayerId: query['filter[opponentPlayerId]'],
+    });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
+  }
+
+  private validateUpsertEstimation(body: unknown): UpsertMatchupEstimationCommand {
+    const result = upsertMatchupEstimationSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return {
+      listOpenedAt: result.data.listOpenedAt,
+      hasFirstTurnImpact: result.data.hasFirstTurnImpact,
+      scoreSingle: result.data.scoreSingle,
+      scoreGoFirst: result.data.scoreGoFirst,
+      scoreGoSecond: result.data.scoreGoSecond,
+      comment: result.data.comment ?? null,
+    };
+  }
+
+  private validateTablePreferencesListQuery(query: TablePreferencesQuery): {
+    page: number;
+    pageSize: number;
+    sort: 'createdAt' | '-createdAt' | 'updatedAt' | '-updatedAt';
+    playerMembershipId?: string;
+    roundTableId?: string;
+  } {
+    const result = tablePreferencesListQuerySchema.safeParse({
+      page: query.page,
+      pageSize: query.pageSize,
+      sort: query.sort,
+      playerMembershipId: query['filter[playerMembershipId]'],
+      roundTableId: query['filter[roundTableId]'],
+    });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
+  }
+
+  private validateUpsertTablePreference(body: unknown): UpsertTablePreferenceCommand {
+    const result = upsertTablePreferenceSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return { preference: result.data.preference };
   }
 
   private createValidationException(message: string): BadRequestException {

@@ -303,3 +303,77 @@ export const patchTableAssetSchema = z
   });
 
 export type PatchTableAssetInput = z.infer<typeof patchTableAssetSchema>;
+
+// ---------------------------------------------------------------------------
+// 2.9 Player estimations and preferences
+// ---------------------------------------------------------------------------
+
+const estimationScoreSchema = z.number().int().min(0, "Score must be between 0 and 20").max(20, "Score must be between 0 and 20");
+
+export const estimationsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt", "updatedAt", "-updatedAt"]).default("-createdAt"),
+  playerMembershipId: z.uuid("playerMembershipId must be a valid UUID.").optional(),
+  opponentPlayerId: z.uuid("opponentPlayerId must be a valid UUID.").optional(),
+});
+
+export const upsertMatchupEstimationSchema = z
+  .object({
+    listOpenedAt: z.string().datetime("listOpenedAt must be a valid ISO datetime."),
+    hasFirstTurnImpact: z.boolean(),
+    scoreSingle: estimationScoreSchema.nullable(),
+    scoreGoFirst: estimationScoreSchema.nullable(),
+    scoreGoSecond: estimationScoreSchema.nullable(),
+    comment: z
+      .string()
+      .trim()
+      .max(200, "comment must be at most 200 characters")
+      .nullable()
+      .optional(),
+  })
+  .superRefine((data, ctx): void => {
+    if (data.hasFirstTurnImpact) {
+      if (data.scoreSingle !== null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["scoreSingle"],
+          message: "scoreSingle must be null when hasFirstTurnImpact is true.",
+        });
+      }
+      if (data.scoreGoFirst === null || data.scoreGoSecond === null) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          path: ["scoreGoFirst"],
+          message: "scoreGoFirst and scoreGoSecond are required when hasFirstTurnImpact is true.",
+        });
+      }
+      return;
+    }
+    if (data.scoreSingle === null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scoreSingle"],
+        message: "scoreSingle is required when hasFirstTurnImpact is false.",
+      });
+    }
+    if (data.scoreGoFirst !== null || data.scoreGoSecond !== null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["scoreGoFirst"],
+        message: "scoreGoFirst and scoreGoSecond must be null when hasFirstTurnImpact is false.",
+      });
+    }
+  });
+
+export type UpsertMatchupEstimationInput = z.infer<typeof upsertMatchupEstimationSchema>;
+
+export const tablePreferencesListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt", "updatedAt", "-updatedAt"]).default("-createdAt"),
+  playerMembershipId: z.uuid("playerMembershipId must be a valid UUID.").optional(),
+  roundTableId: z.uuid("roundTableId must be a valid UUID.").optional(),
+});
+
+export const upsertTablePreferenceSchema = z.object({
+  preference: z.enum(["preferred", "not_preferred"]),
+});
+
+export type UpsertTablePreferenceInput = z.infer<typeof upsertTablePreferenceSchema>;
