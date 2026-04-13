@@ -511,3 +511,31 @@ export const appendEstimatorEventSchema = z.object({
 });
 
 export type AppendEstimatorEventInput = z.infer<typeof appendEstimatorEventSchema>;
+
+// ---------------------------------------------------------------------------
+// 2.13 Offline captain sync (local wins)
+// ---------------------------------------------------------------------------
+
+const offlineSyncPayloadSchema: z.ZodType<Json> = z
+  .object({
+    pairingRunDraft: jsonPayloadSchema.optional(),
+    timestamp: z.string().datetime("payload.timestamp must be a valid ISO datetime."),
+  })
+  .passthrough() as z.ZodType<Json>;
+
+export const offlineSyncPushSchema = z.object({
+  clientSnapshotId: z
+    .string()
+    .trim()
+    .min(1, "clientSnapshotId must not be empty")
+    .max(200, "clientSnapshotId must be at most 200 characters"),
+  payload: offlineSyncPayloadSchema,
+});
+
+export type OfflineSyncPushInput = z.infer<typeof offlineSyncPushSchema>;
+
+export const offlineSyncListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["syncedAt", "-syncedAt"]).default("-syncedAt"),
+});
+
+export type OfflineSyncListQueryInput = z.infer<typeof offlineSyncListQuerySchema>;

@@ -12,6 +12,8 @@ const mockTeamId = '660e8400-e29b-41d4-a716-446655440000';
 const mockMembershipId = '770e8400-e29b-41d4-a716-446655440000';
 const mockTournamentId = '880e8400-e29b-41d4-a716-446655440000';
 const mockRoundId = '990e8400-e29b-41d4-a716-446655440000';
+const mockOtherRoundId = 'aa0e8400-e29b-41d4-a716-446655440001';
+const mockSnapshotId = '470e8400-e29b-41d4-a716-446655440000';
 
 type BuilderResponse = { data: unknown; error: { code?: string; message?: string } | null; count?: number | null };
 
@@ -104,6 +106,15 @@ const mockRoundTableRow = {
   table_name: 'Top table',
   image_asset_id: null,
   created_at: '2025-01-01T00:00:00.000Z',
+};
+
+const mockOfflineSyncSnapshotRow = {
+  id: mockSnapshotId,
+  captain_membership_id: mockMembershipId,
+  client_snapshot_id: 'client-snapshot-1',
+  round_id: mockRoundId,
+  payload: { pairingRunDraft: { mode: 'live' }, timestamp: '2025-02-10T00:00:00.000Z' },
+  synced_at: '2025-02-10T00:00:01.000Z',
 };
 
 describe('RoundsService', () => {
@@ -822,6 +833,144 @@ describe('RoundsService', () => {
         }),
       ).rejects.toThrow(NotFoundException);
       expect(opponentCalls).toBe(1);
+    });
+  });
+
+  describe('pushOfflineSync', () => {
+    it('should insert snapshot when clientSnapshotId does not exist', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const existingSnapshotBuilder = createBuilder({
+        maybeSingleResponse: { data: null, error: null, count: null },
+      });
+      const insertSnapshotBuilder = createBuilder({
+        singleResponse: { data: mockOfflineSyncSnapshotRow, error: null, count: null },
+      });
+      let teamMembershipCalls = 0;
+      let tournamentsCalls = 0;
+      let offlineSyncCalls = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') {
+          tournamentsCalls++;
+          return tournamentBuilder;
+        }
+        if (table === 'team_memberships') {
+          teamMembershipCalls++;
+          return captainBuilder;
+        }
+        if (table === 'offline_sync_snapshots') {
+          offlineSyncCalls++;
+          return offlineSyncCalls === 1 ? existingSnapshotBuilder : insertSnapshotBuilder;
+        }
+        return createBuilder();
+      });
+      const actualResult = await service.pushOfflineSync({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: {
+          clientSnapshotId: 'client-snapshot-1',
+          payload: { pairingRunDraft: { mode: 'live' }, timestamp: '2025-02-10T00:00:00.000Z' },
+        },
+      });
+      expect(actualResult).toEqual({
+        applied: true,
+        snapshotId: mockSnapshotId,
+        conflictResolution: 'local_wins',
+      });
+      expect(teamMembershipCalls).toBeGreaterThan(0);
+      expect(tournamentsCalls).toBeGreaterThan(0);
+    });
+
+    it('should throw BadRequestException when clientSnapshotId exists for another round', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const conflictingSnapshotBuilder = createBuilder({
+        maybeSingleResponse: {
+          data: { id: mockSnapshotId, round_id: mockOtherRoundId },
+          error: null,
+          count: null,
+        },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        if (table === 'offline_sync_snapshots') return conflictingSnapshotBuilder;
+        return createBuilder();
+      });
+      await expect(
+        service.pushOfflineSync({
+          actorUserId: mockUserId,
+          roundId: mockRoundId,
+          command: {
+            clientSnapshotId: 'client-snapshot-1',
+            payload: { pairingRunDraft: {}, timestamp: '2025-02-10T00:00:00.000Z' },
+          },
+        }),
+      ).rejects.toMatchObject({
+        response: {
+          error: {
+            code: 'VALIDATION_ERROR',
+            message: 'clientSnapshotId already exists for another round.',
+            details: {},
+          },
+        },
+      });
+    });
+  });
+
+  describe('listOfflineSyncSnapshots', () => {
+    it('should return paginated snapshot list', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const memberBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const snapshotsBuilder = createBuilder({
+        rangeResponse: { data: [mockOfflineSyncSnapshotRow], error: null, count: 1 },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return memberBuilder;
+        if (table === 'offline_sync_snapshots') return snapshotsBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.listOfflineSyncSnapshots({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: '-syncedAt',
+      });
+      expect(actualResult.data[0]).toEqual({
+        id: mockSnapshotId,
+        captainMembershipId: mockMembershipId,
+        clientSnapshotId: 'client-snapshot-1',
+        roundId: mockRoundId,
+        payload: { pairingRunDraft: { mode: 'live' }, timestamp: '2025-02-10T00:00:00.000Z' },
+        syncedAt: '2025-02-10T00:00:01.000Z',
+      });
+      expect(actualResult.pagination.total).toBe(1);
     });
   });
 });

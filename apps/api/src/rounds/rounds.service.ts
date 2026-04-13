@@ -23,6 +23,9 @@ import type {
   MatrixCellDetailDto,
   MatrixCellDto,
   MatchupEstimationDto,
+  OfflineSyncPushCommand,
+  OfflineSyncPushResponseDto,
+  OfflineSyncSnapshotDto,
   OpponentPlayerDto,
   PaginatedListDto,
   PairingAssignmentDto,
@@ -64,6 +67,7 @@ type PairingStepRow = Database['public']['Tables']['pairing_steps']['Row'];
 type PairingAssignmentRow = Database['public']['Tables']['pairing_assignments']['Row'];
 type EstimatorSessionRow = Database['public']['Tables']['estimator_sessions']['Row'];
 type EstimatorEventRow = Database['public']['Tables']['estimator_events']['Row'];
+type OfflineSyncSnapshotRow = Database['public']['Tables']['offline_sync_snapshots']['Row'];
 
 type RoundsListParams = {
   actorUserId: string;
@@ -293,6 +297,20 @@ type AppendEstimatorEventParams = {
   actorUserId: string;
   sessionId: string;
   command: AppendEstimatorEventCommand;
+};
+
+type PushOfflineSyncParams = {
+  actorUserId: string;
+  roundId: string;
+  command: OfflineSyncPushCommand;
+};
+
+type OfflineSyncSnapshotsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'syncedAt' | '-syncedAt';
 };
 
 type CreateRoundOpponentCommand = {
@@ -1482,6 +1500,95 @@ export class RoundsService {
     return this.mapEstimatorEventRow(data);
   }
 
+  /** Push offline snapshot using local-wins conflict policy (captain). */
+  async pushOfflineSync(params: PushOfflineSyncParams): Promise<OfflineSyncPushResponseDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const tournament = await this.fetchTournamentOrFail(round.tournament_id);
+    const captainMembershipId = await this.resolveCaptainMembership(params.actorUserId, tournament.team_id);
+    const syncedAt = new Date().toISOString();
+    const { data: existingSnapshot, error: existingSnapshotError } = await this.supabaseService
+      .getClient()
+      .from('offline_sync_snapshots')
+      .select('id, round_id')
+      .eq('client_snapshot_id', params.command.clientSnapshotId)
+      .maybeSingle();
+    if (existingSnapshotError) {
+      this.logger.error('Failed to check offline sync snapshot conflicts', existingSnapshotError);
+      throw this.createInternalErrorException();
+    }
+    if (existingSnapshot && existingSnapshot.round_id !== round.id) {
+      throw this.createValidationException('clientSnapshotId already exists for another round.');
+    }
+    const selectColumns = 'id, captain_membership_id, client_snapshot_id, round_id, payload, synced_at';
+    if (!existingSnapshot) {
+      const { data, error } = await this.supabaseService
+        .getClient()
+        .from('offline_sync_snapshots')
+        .insert({
+          round_id: round.id,
+          captain_membership_id: captainMembershipId,
+          client_snapshot_id: params.command.clientSnapshotId,
+          payload: params.command.payload,
+          synced_at: syncedAt,
+        })
+        .select(selectColumns)
+        .single();
+      if (error || !data) {
+        if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+          throw this.createValidationException('Offline sync snapshot data does not satisfy constraints.');
+        }
+        this.logger.error('Failed to insert offline sync snapshot', error);
+        throw this.createInternalErrorException();
+      }
+      return { applied: true, snapshotId: data.id, conflictResolution: 'local_wins' };
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('offline_sync_snapshots')
+      .update({
+        round_id: round.id,
+        captain_membership_id: captainMembershipId,
+        payload: params.command.payload,
+        synced_at: syncedAt,
+      })
+      .eq('id', existingSnapshot.id)
+      .select(selectColumns)
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Offline sync snapshot data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to update offline sync snapshot', error);
+      throw this.createInternalErrorException();
+    }
+    return { applied: true, snapshotId: data.id, conflictResolution: 'local_wins' };
+  }
+
+  /** List offline sync snapshots for diagnostics. */
+  async listOfflineSyncSnapshots(
+    params: OfflineSyncSnapshotsListParams,
+  ): Promise<PaginatedListDto<OfflineSyncSnapshotDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveOfflineSyncSnapshotsSort(params.sort);
+    const { data, error, count } = await this.supabaseService
+      .getClient()
+      .from('offline_sync_snapshots')
+      .select('id, captain_membership_id, client_snapshot_id, round_id, payload, synced_at', { count: 'exact' })
+      .eq('round_id', round.id)
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list offline sync snapshots', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapOfflineSyncSnapshotRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Access control helpers
   // -------------------------------------------------------------------------
@@ -2197,6 +2304,16 @@ export class RoundsService {
     return mapping[sort] ?? { column: 'event_order', ascending: true };
   }
 
+  private resolveOfflineSyncSnapshotsSort(
+    sort: OfflineSyncSnapshotsListParams['sort'],
+  ): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      syncedAt: { column: 'synced_at', ascending: true },
+      '-syncedAt': { column: 'synced_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'synced_at', ascending: false };
+  }
+
   // -------------------------------------------------------------------------
   // Conflict resolver for unique violations
   // -------------------------------------------------------------------------
@@ -2385,6 +2502,19 @@ export class RoundsService {
       tileValue: row.tile_value,
       eventOrder: row.event_order,
       clickedAt: row.clicked_at,
+    };
+  }
+
+  private mapOfflineSyncSnapshotRow(
+    row: Pick<OfflineSyncSnapshotRow, 'id' | 'captain_membership_id' | 'client_snapshot_id' | 'round_id' | 'payload' | 'synced_at'>,
+  ): OfflineSyncSnapshotDto {
+    return {
+      id: row.id,
+      captainMembershipId: row.captain_membership_id,
+      clientSnapshotId: row.client_snapshot_id,
+      roundId: row.round_id,
+      payload: row.payload,
+      syncedAt: row.synced_at,
     };
   }
 

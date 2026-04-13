@@ -13,6 +13,7 @@ const mockTableId = '980e8400-e29b-41d4-a716-446655440000';
 const mockEstimationId = '780e8400-e29b-41d4-a716-446655440000';
 const mockSecondMembershipId = '670e8400-e29b-41d4-a716-446655440001';
 const mockPairingRunId = '570e8400-e29b-41d4-a716-446655440000';
+const mockSnapshotId = '470e8400-e29b-41d4-a716-446655440000';
 
 const mockRoundDto = {
   id: mockRoundId,
@@ -199,6 +200,22 @@ describe('RoundsController', () => {
         comment: null,
         gameResult: 14,
       }],
+    }),
+    pushOfflineSync: jest.fn().mockResolvedValue({
+      applied: true,
+      snapshotId: mockSnapshotId,
+      conflictResolution: 'local_wins',
+    }),
+    listOfflineSyncSnapshots: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockSnapshotId,
+        captainMembershipId: mockMembershipId,
+        clientSnapshotId: 'client-snapshot-1',
+        roundId: mockRoundId,
+        payload: { pairingRunDraft: {}, timestamp: '2025-02-10T00:00:00.000Z' },
+        syncedAt: '2025-02-10T00:00:01.000Z',
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
     }),
   };
 
@@ -542,6 +559,51 @@ describe('RoundsController', () => {
       const actualResult = await controller.getFinalPairings(mockUserId, mockRoundId);
       expect(actualResult.roundId).toBe(mockRoundId);
       expect(mockRoundsService.getFinalPairings).toHaveBeenCalledWith(mockUserId, mockRoundId);
+    });
+  });
+
+  describe('pushOfflineSync', () => {
+    it('should validate payload and call service', async () => {
+      const actualResult = await controller.pushOfflineSync(mockUserId, mockRoundId, {
+        clientSnapshotId: 'client-snapshot-1',
+        payload: { pairingRunDraft: { mode: 'live' }, timestamp: '2025-02-10T00:00:00.000Z' },
+      });
+      expect(actualResult.applied).toBe(true);
+      expect(mockRoundsService.pushOfflineSync).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: {
+          clientSnapshotId: 'client-snapshot-1',
+          payload: { pairingRunDraft: { mode: 'live' }, timestamp: '2025-02-10T00:00:00.000Z' },
+        },
+      });
+    });
+
+    it('should reject payload without timestamp', async () => {
+      await expect(
+        controller.pushOfflineSync(mockUserId, mockRoundId, {
+          clientSnapshotId: 'client-snapshot-1',
+          payload: { pairingRunDraft: {} },
+        }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('listOfflineSyncSnapshots', () => {
+    it('should parse query and call service', async () => {
+      const actualResult = await controller.listOfflineSyncSnapshots(mockUserId, mockRoundId, {
+        page: '2',
+        pageSize: '10',
+        sort: '-syncedAt',
+      });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listOfflineSyncSnapshots).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 2,
+        pageSize: 10,
+        sort: '-syncedAt',
+      });
     });
   });
 });

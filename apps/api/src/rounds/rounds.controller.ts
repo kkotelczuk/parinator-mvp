@@ -18,6 +18,8 @@ import {
   createOpponentSchema,
   estimationsListQuerySchema,
   matrixCellsListQuerySchema,
+  offlineSyncListQuerySchema,
+  offlineSyncPushSchema,
   opponentsListQuerySchema,
   pairingRunsListQuerySchema,
   patchRoundSchema,
@@ -38,6 +40,9 @@ import {
   type MatrixCellDetailDto,
   type MatrixCellDto,
   type MatchupEstimationDto,
+  type OfflineSyncPushCommand,
+  type OfflineSyncPushResponseDto,
+  type OfflineSyncSnapshotDto,
   type OpponentPlayerDto,
   type PaginatedListDto,
   type PairingRunDto,
@@ -110,6 +115,12 @@ type PairingRunsQuery = {
   'filter[mode]'?: string;
   'filter[isFinal]'?: string;
   'filter[simulationRating]'?: string;
+};
+
+type OfflineSyncQuery = {
+  page?: string;
+  pageSize?: string;
+  sort?: string;
 };
 
 @Controller('rounds')
@@ -507,6 +518,41 @@ export class RoundsController {
     return this.roundsService.getFinalPairings(userId, validatedRoundId);
   }
 
+  /** POST /api/v1/rounds/:roundId/offline-sync — Push offline snapshot using local-wins policy (captain). */
+  @Post(':roundId/offline-sync')
+  @HttpCode(HttpStatus.OK)
+  async pushOfflineSync(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Body() body: unknown,
+  ): Promise<OfflineSyncPushResponseDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const command = this.validateOfflineSyncPush(body);
+    return this.roundsService.pushOfflineSync({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      command,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/offline-sync — List synced snapshots for diagnostics. */
+  @Get(':roundId/offline-sync')
+  async listOfflineSyncSnapshots(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: OfflineSyncQuery,
+  ): Promise<PaginatedListDto<OfflineSyncSnapshotDto>> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validateOfflineSyncListQuery(query);
+    return this.roundsService.listOfflineSyncSnapshots({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      page: validatedQuery.page,
+      pageSize: validatedQuery.pageSize,
+      sort: validatedQuery.sort,
+    });
+  }
+
 
   // -------------------------------------------------------------------------
   // Validation helpers
@@ -742,6 +788,33 @@ export class RoundsController {
       simulationRating: result.data.simulationRating ?? null,
       sortOrder: result.data.sortOrder ?? null,
     };
+  }
+
+  private validateOfflineSyncPush(body: unknown): OfflineSyncPushCommand {
+    const result = offlineSyncPushSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return {
+      clientSnapshotId: result.data.clientSnapshotId,
+      payload: result.data.payload,
+    };
+  }
+
+  private validateOfflineSyncListQuery(query: OfflineSyncQuery): {
+    page: number;
+    pageSize: number;
+    sort: 'syncedAt' | '-syncedAt';
+  } {
+    const result = offlineSyncListQuerySchema.safeParse({
+      page: query.page,
+      pageSize: query.pageSize,
+      sort: query.sort,
+    });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
   }
 
 
