@@ -670,4 +670,158 @@ describe('RoundsService', () => {
       expect(opponentsCalls).toBe(1);
     });
   });
+
+  describe('getRoundMatrix', () => {
+    it('should return matrix aggregate for player view', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const accessMembershipBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const actorMembershipBuilder = createBuilder({
+        singleResponse: {
+          data: {
+            id: mockMembershipId,
+            team_id: mockTeamId,
+            user_id: mockUserId,
+            role: 'player',
+            is_playing: true,
+            joined_at: '2025-01-01T00:00:00.000Z',
+            left_at: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+          },
+          error: null,
+          count: null,
+        },
+      });
+      const matrixMembersBuilder = createBuilder({
+        defaultResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const opponentsBuilder = createBuilder({
+        defaultResponse: { data: [{ id: mockOpponentRow.id, name: mockOpponentRow.name }], error: null, count: null },
+      });
+      const estimationsBuilder = createBuilder({
+        defaultResponse: {
+          data: [{
+            id: 'e10e8400-e29b-41d4-a716-446655440000',
+            player_membership_id: mockMembershipId,
+            opponent_player_id: mockOpponentRow.id,
+            list_opened_at: '2025-01-01T00:00:00.000Z',
+            has_first_turn_impact: false,
+            score_single: 10,
+            score_go_first: null,
+            score_go_second: null,
+            comment: 'Good matchup',
+          }],
+          error: null,
+          count: null,
+        },
+      });
+      const tablePreferencesBuilder = createBuilder({
+        defaultResponse: {
+          data: [{ player_membership_id: mockMembershipId, preference: 'preferred' }],
+          error: null,
+          count: null,
+        },
+      });
+      let teamMembershipCalls = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') {
+          teamMembershipCalls++;
+          if (teamMembershipCalls === 1) return accessMembershipBuilder;
+          if (teamMembershipCalls === 2) return actorMembershipBuilder;
+          return matrixMembersBuilder;
+        }
+        if (table === 'opponent_players') return opponentsBuilder;
+        if (table === 'matchup_estimations') return estimationsBuilder;
+        if (table === 'table_preferences') return tablePreferencesBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.getRoundMatrix({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        view: 'player',
+      });
+      expect(actualResult.rows).toEqual([{ playerMembershipId: mockMembershipId }]);
+      expect(actualResult.columns).toEqual([{ opponentPlayerId: mockOpponentRow.id, name: mockOpponentRow.name }]);
+      expect(actualResult.cells[0]?.comment).toBe('Good matchup');
+      expect(actualResult.cells[0]?.tablePreferenceSummary).toEqual({ preferred: 1, notPreferred: 0 });
+    });
+  });
+
+  describe('getRoundMatrixCell', () => {
+    it('should throw NotFoundException when matrix cell has no data', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const accessMembershipBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const actorMembershipBuilder = createBuilder({
+        singleResponse: {
+          data: {
+            id: mockMembershipId,
+            team_id: mockTeamId,
+            user_id: mockUserId,
+            role: 'captain',
+            is_playing: false,
+            joined_at: '2025-01-01T00:00:00.000Z',
+            left_at: null,
+            created_at: '2025-01-01T00:00:00.000Z',
+          },
+          error: null,
+          count: null,
+        },
+      });
+      const validatedPlayerMembershipBuilder = createBuilder({
+        maybeSingleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const opponentBuilder = createBuilder({
+        maybeSingleResponse: { data: { id: mockOpponentRow.id }, error: null, count: null },
+      });
+      const estimationBuilder = createBuilder({
+        maybeSingleResponse: { data: null, error: null, count: null },
+      });
+      const tablePreferencesBuilder = createBuilder({
+        defaultResponse: { data: [], error: null, count: null },
+      });
+      let teamMembershipCalls = 0;
+      let opponentCalls = 0;
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') {
+          teamMembershipCalls++;
+          if (teamMembershipCalls === 1) return accessMembershipBuilder;
+          if (teamMembershipCalls === 2) return actorMembershipBuilder;
+          return validatedPlayerMembershipBuilder;
+        }
+        if (table === 'opponent_players') {
+          opponentCalls++;
+          return opponentBuilder;
+        }
+        if (table === 'matchup_estimations') return estimationBuilder;
+        if (table === 'table_preferences') return tablePreferencesBuilder;
+        return createBuilder();
+      });
+      await expect(
+        service.getRoundMatrixCell({
+          actorUserId: mockUserId,
+          roundId: mockRoundId,
+          playerMembershipId: mockMembershipId,
+          opponentPlayerId: mockOpponentRow.id,
+        }),
+      ).rejects.toThrow(NotFoundException);
+      expect(opponentCalls).toBe(1);
+    });
+  });
 });

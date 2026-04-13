@@ -14,13 +14,17 @@ import {
   UseGuards,
 } from '@nestjs/common';
 import {
+  createPairingRunSchema,
   createOpponentSchema,
   estimationsListQuerySchema,
+  matrixCellsListQuerySchema,
   opponentsListQuerySchema,
+  pairingRunsListQuerySchema,
   patchRoundSchema,
   patchOpponentSchema,
   putRoundTablesSchema,
   reorderRoundSchema,
+  roundMatrixQuerySchema,
   tablePreferencesListQuerySchema,
   tablesListQuerySchema,
   upsertMatchupEstimationSchema,
@@ -31,9 +35,15 @@ import {
   type DeleteTablePreferenceResponseDto,
   type DeletedSuccessDto,
   type LockRoundResponseDto,
+  type MatrixCellDetailDto,
+  type MatrixCellDto,
   type MatchupEstimationDto,
   type OpponentPlayerDto,
   type PaginatedListDto,
+  type PairingRunDto,
+  type PairingRunSummaryDto,
+  type CreatePairingRunCommand,
+  type FinalPairingsResponseDto,
   type PatchRoundCommand,
   type PatchOpponentCommand,
   type PlayerEstimationStatusDto,
@@ -41,6 +51,7 @@ import {
   type PutRoundTablesResponseDto,
   type ReorderRoundResponseDto,
   type RoundDto,
+  type RoundMatrixDto,
   type RoundTableDto,
   type TablePreferenceDto,
   type UpsertMatchupEstimationCommand,
@@ -78,6 +89,27 @@ type TablePreferencesQuery = {
   sort?: string;
   'filter[playerMembershipId]'?: string;
   'filter[roundTableId]'?: string;
+};
+
+type MatrixQuery = {
+  'filter[view]'?: string;
+};
+
+type MatrixCellsQuery = {
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  'filter[playerMembershipId]'?: string;
+  'filter[opponentPlayerId]'?: string;
+};
+
+type PairingRunsQuery = {
+  page?: string;
+  pageSize?: string;
+  sort?: string;
+  'filter[mode]'?: string;
+  'filter[isFinal]'?: string;
+  'filter[simulationRating]'?: string;
 };
 
 @Controller('rounds')
@@ -372,6 +404,110 @@ export class RoundsController {
     return this.roundsService.getMyEstimationStatus(userId, validatedRoundId);
   }
 
+  /** GET /api/v1/rounds/:roundId/matrix — Return aggregate matrix payload. */
+  @Get(':roundId/matrix')
+  async getRoundMatrix(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: MatrixQuery,
+  ): Promise<RoundMatrixDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validateRoundMatrixQuery(query);
+    return this.roundsService.getRoundMatrix({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      view: validatedQuery.view,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/matrix/cells — List matrix cells with filters. */
+  @Get(':roundId/matrix/cells')
+  async listRoundMatrixCells(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: MatrixCellsQuery,
+  ): Promise<PaginatedListDto<MatrixCellDto>> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validateMatrixCellsListQuery(query);
+    return this.roundsService.listRoundMatrixCells({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      page: validatedQuery.page,
+      pageSize: validatedQuery.pageSize,
+      sort: validatedQuery.sort,
+      playerMembershipId: validatedQuery.playerMembershipId,
+      opponentPlayerId: validatedQuery.opponentPlayerId,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/matrix/cells/:playerMembershipId/:opponentPlayerId — Return modal details for one cell. */
+  @Get(':roundId/matrix/cells/:playerMembershipId/:opponentPlayerId')
+  async getRoundMatrixCell(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Param('playerMembershipId') playerMembershipId: string,
+    @Param('opponentPlayerId') opponentPlayerId: string,
+  ): Promise<MatrixCellDetailDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedPlayerMembershipId = this.validateUuidParam(playerMembershipId, 'playerMembershipId');
+    const validatedOpponentPlayerId = this.validateUuidParam(opponentPlayerId, 'opponentPlayerId');
+    return this.roundsService.getRoundMatrixCell({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      playerMembershipId: validatedPlayerMembershipId,
+      opponentPlayerId: validatedOpponentPlayerId,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/pairing-runs — List pairing simulation/live runs. */
+  @Get(':roundId/pairing-runs')
+  async listPairingRuns(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Query() query: PairingRunsQuery,
+  ): Promise<PaginatedListDto<PairingRunSummaryDto>> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const validatedQuery = this.validatePairingRunsListQuery(query);
+    return this.roundsService.listPairingRuns({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      page: validatedQuery.page,
+      pageSize: validatedQuery.pageSize,
+      sort: validatedQuery.sort,
+      mode: validatedQuery.mode,
+      isFinal: validatedQuery.isFinal,
+      simulationRating: validatedQuery.simulationRating,
+    });
+  }
+
+  /** POST /api/v1/rounds/:roundId/pairing-runs — Create pairing simulation/live run (captain). */
+  @Post(':roundId/pairing-runs')
+  @HttpCode(HttpStatus.CREATED)
+  async createPairingRun(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+    @Body() body: unknown,
+  ): Promise<PairingRunDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    const command = this.validateCreatePairingRun(body);
+    return this.roundsService.createPairingRun({
+      actorUserId: userId,
+      roundId: validatedRoundId,
+      command,
+    });
+  }
+
+  /** GET /api/v1/rounds/:roundId/final-pairings — Return final live pairings summary. */
+  @Get(':roundId/final-pairings')
+  async getFinalPairings(
+    @CurrentUserId() userId: string,
+    @Param('roundId') roundId: string,
+  ): Promise<FinalPairingsResponseDto> {
+    const validatedRoundId = this.validateUuidParam(roundId, 'roundId');
+    return this.roundsService.getFinalPairings(userId, validatedRoundId);
+  }
+
+
   // -------------------------------------------------------------------------
   // Validation helpers
   // -------------------------------------------------------------------------
@@ -544,6 +680,70 @@ export class RoundsController {
     }
     return { preference: result.data.preference };
   }
+
+  private validateRoundMatrixQuery(query: MatrixQuery): { view: 'captain' | 'player' } {
+    const result = roundMatrixQuerySchema.safeParse({ view: query['filter[view]'] });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
+  }
+
+  private validateMatrixCellsListQuery(query: MatrixCellsQuery): {
+    page: number;
+    pageSize: number;
+    sort: 'playerMembershipId' | '-playerMembershipId' | 'opponentPlayerId' | '-opponentPlayerId';
+    playerMembershipId?: string;
+    opponentPlayerId?: string;
+  } {
+    const result = matrixCellsListQuerySchema.safeParse({
+      page: query.page,
+      pageSize: query.pageSize,
+      sort: query.sort,
+      playerMembershipId: query['filter[playerMembershipId]'],
+      opponentPlayerId: query['filter[opponentPlayerId]'],
+    });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
+  }
+
+  private validatePairingRunsListQuery(query: PairingRunsQuery): {
+    page: number;
+    pageSize: number;
+    sort: 'createdAt' | '-createdAt' | 'sortOrder' | '-sortOrder' | 'finalizedAt' | '-finalizedAt';
+    mode?: 'simulation' | 'live';
+    isFinal?: boolean;
+    simulationRating?: 'better' | 'worse' | 'neutral';
+  } {
+    const result = pairingRunsListQuerySchema.safeParse({
+      page: query.page,
+      pageSize: query.pageSize,
+      sort: query.sort,
+      mode: query['filter[mode]'],
+      isFinal: query['filter[isFinal]'],
+      simulationRating: query['filter[simulationRating]'],
+    });
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid query.');
+    }
+    return result.data;
+  }
+
+  private validateCreatePairingRun(body: unknown): CreatePairingRunCommand {
+    const result = createPairingRunSchema.safeParse(body);
+    if (!result.success) {
+      throw this.createValidationException(result.error.issues[0]?.message ?? 'Invalid payload.');
+    }
+    return {
+      mode: result.data.mode,
+      name: result.data.name ?? null,
+      simulationRating: result.data.simulationRating ?? null,
+      sortOrder: result.data.sortOrder ?? null,
+    };
+  }
+
 
   private createValidationException(message: string): BadRequestException {
     return new BadRequestException({

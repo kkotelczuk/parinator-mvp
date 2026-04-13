@@ -1,4 +1,5 @@
 import { z } from "zod";
+import type { Json } from "./database.types";
 
 export type * from "./types";
 export type { Database } from "./database.types";
@@ -10,6 +11,14 @@ const paginationQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
   pageSize: z.coerce.number().int().min(1).max(100).default(20),
 });
+const jsonPayloadSchema = z.custom<Json>((value): boolean => {
+  try {
+    JSON.stringify(value);
+    return true;
+  } catch {
+    return false;
+  }
+}, "payload must be valid JSON.");
 
 export const loginSchema = z.object({
   email: z.email(),
@@ -377,3 +386,102 @@ export const upsertTablePreferenceSchema = z.object({
 });
 
 export type UpsertTablePreferenceInput = z.infer<typeof upsertTablePreferenceSchema>;
+
+// ---------------------------------------------------------------------------
+// 2.10 Pairing matrix and cell modal
+// ---------------------------------------------------------------------------
+
+export const roundMatrixQuerySchema = z.object({
+  view: z.enum(["captain", "player"]).default("captain"),
+});
+
+export type RoundMatrixQueryInput = z.infer<typeof roundMatrixQuerySchema>;
+
+export const matrixCellsListQuerySchema = paginationQuerySchema.extend({
+  sort: z
+    .enum(["playerMembershipId", "-playerMembershipId", "opponentPlayerId", "-opponentPlayerId"])
+    .default("playerMembershipId"),
+  playerMembershipId: z.uuid("playerMembershipId must be a valid UUID.").optional(),
+  opponentPlayerId: z.uuid("opponentPlayerId must be a valid UUID.").optional(),
+});
+
+export type MatrixCellsListQueryInput = z.infer<typeof matrixCellsListQuerySchema>;
+
+// ---------------------------------------------------------------------------
+// 2.11 Pairing simulator and live flow
+// ---------------------------------------------------------------------------
+
+const pairingModeSchema = z.enum(["simulation", "live"]);
+const simulationRatingSchema = z.enum(["better", "worse", "neutral"]);
+
+export const pairingRunsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt", "sortOrder", "-sortOrder", "finalizedAt", "-finalizedAt"]).default("-createdAt"),
+  mode: pairingModeSchema.optional(),
+  isFinal: queryBooleanSchema.optional(),
+  simulationRating: simulationRatingSchema.optional(),
+});
+
+export const createPairingRunSchema = z.object({
+  mode: pairingModeSchema,
+  name: z.string().trim().min(1, "name must not be empty").max(200, "name must be at most 200 characters").nullable().optional(),
+  simulationRating: simulationRatingSchema.nullable().optional(),
+  sortOrder: z.number().int().min(1, "sortOrder must be at least 1").max(999, "sortOrder must be at most 999").nullable().optional(),
+});
+
+export type CreatePairingRunInput = z.infer<typeof createPairingRunSchema>;
+
+export const patchPairingRunSchema = z
+  .object({
+    name: z.string().trim().min(1, "name must not be empty").max(200, "name must be at most 200 characters").nullable().optional(),
+    simulationRating: simulationRatingSchema.nullable().optional(),
+    sortOrder: z.number().int().min(1, "sortOrder must be at least 1").max(999, "sortOrder must be at most 999").nullable().optional(),
+  })
+  .refine(
+    (data): boolean => data.name !== undefined || data.simulationRating !== undefined || data.sortOrder !== undefined,
+    { message: "At least one field must be provided." },
+  );
+
+export type PatchPairingRunInput = z.infer<typeof patchPairingRunSchema>;
+
+export const pairingStepsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["stepNo", "-stepNo", "createdAt", "-createdAt"]).default("stepNo"),
+});
+
+const pairingStepInputSchema = z.object({
+  stepNo: z.number().int().min(1, "stepNo must be at least 1"),
+  phaseKey: z.string().trim().min(1, "phaseKey must not be empty").max(100, "phaseKey must be at most 100 characters"),
+  payload: jsonPayloadSchema,
+});
+
+export const putPairingStepsSchema = z.object({
+  steps: z.array(pairingStepInputSchema),
+});
+
+export type PutPairingStepsInput = z.infer<typeof putPairingStepsSchema>;
+
+export const pairingAssignmentsListQuerySchema = paginationQuerySchema.extend({
+  sort: z
+    .enum(["playerMembershipId", "-playerMembershipId", "opponentPlayerId", "-opponentPlayerId", "createdAt", "-createdAt"])
+    .default("playerMembershipId"),
+  playerMembershipId: z.uuid("playerMembershipId must be a valid UUID.").optional(),
+  opponentPlayerId: z.uuid("opponentPlayerId must be a valid UUID.").optional(),
+});
+
+const pairingAssignmentInputSchema = z.object({
+  playerMembershipId: z.uuid("playerMembershipId must be a valid UUID."),
+  opponentPlayerId: z.uuid("opponentPlayerId must be a valid UUID."),
+  roundTableId: z.uuid("roundTableId must be a valid UUID.").nullable().optional(),
+  estimationId: z.uuid("estimationId must be a valid UUID.").nullable().optional(),
+});
+
+export const putPairingAssignmentsSchema = z.object({
+  assignments: z.array(pairingAssignmentInputSchema),
+});
+
+export type PutPairingAssignmentsInput = z.infer<typeof putPairingAssignmentsSchema>;
+
+export const patchPairingAssignmentResultSchema = z.object({
+  gameResult: z.number().int().min(0, "gameResult must be between 0 and 20").max(20, "gameResult must be between 0 and 20"),
+});
+
+export type PatchPairingAssignmentResultInput = z.infer<typeof patchPairingAssignmentResultSchema>;

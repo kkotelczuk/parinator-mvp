@@ -9,22 +9,38 @@ import {
 } from '@nestjs/common';
 import type {
   ActivateRoundResponseDto,
+  CreatePairingRunCommand,
   CreateRoundCommand,
   Database,
   DeleteTablePreferenceResponseDto,
   DeletedSuccessDto,
+  FinalPairingsResponseDto,
   LockRoundResponseDto,
+  MatrixCellDetailDto,
+  MatrixCellDto,
   MatchupEstimationDto,
   OpponentPlayerDto,
   PaginatedListDto,
+  PairingAssignmentDto,
+  PairingRunDto,
+  PairingRunFinalizeResponseDto,
+  PairingRunSummaryDto,
+  PairingStepDto,
+  PatchPairingAssignmentResultCommand,
+  PatchPairingRunCommand,
   PatchRoundCommand,
   PatchOpponentCommand,
   PlayerEstimationStatusDto,
+  PutPairingAssignmentsCommand,
+  PutPairingAssignmentsResponseDto,
+  PutPairingStepsCommand,
+  PutPairingStepsResponseDto,
   PutRoundTablesCommand,
   PutRoundTablesResponseDto,
   ReorderRoundResponseDto,
   RoundTableDto,
   RoundDto,
+  RoundMatrixDto,
   RoundSummaryDto,
   TablePreferenceDto,
   UpsertMatchupEstimationCommand,
@@ -39,6 +55,9 @@ type TournamentRow = Database['public']['Tables']['tournaments']['Row'];
 type MatchupEstimationRow = Database['public']['Tables']['matchup_estimations']['Row'];
 type TablePreferenceRow = Database['public']['Tables']['table_preferences']['Row'];
 type TeamMembershipRow = Database['public']['Tables']['team_memberships']['Row'];
+type PairingRunRow = Database['public']['Tables']['pairing_runs']['Row'];
+type PairingStepRow = Database['public']['Tables']['pairing_steps']['Row'];
+type PairingAssignmentRow = Database['public']['Tables']['pairing_assignments']['Row'];
 
 type RoundsListParams = {
   actorUserId: string;
@@ -149,6 +168,98 @@ type DeleteTablePreferenceParams = {
   actorUserId: string;
   roundId: string;
   roundTableId: string;
+};
+
+type RoundMatrixParams = {
+  actorUserId: string;
+  roundId: string;
+  view: 'captain' | 'player';
+};
+
+type RoundMatrixCellsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'playerMembershipId' | '-playerMembershipId' | 'opponentPlayerId' | '-opponentPlayerId';
+  playerMembershipId?: string;
+  opponentPlayerId?: string;
+};
+
+type RoundMatrixCellParams = {
+  actorUserId: string;
+  roundId: string;
+  playerMembershipId: string;
+  opponentPlayerId: string;
+};
+
+type PairingRunsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'createdAt' | '-createdAt' | 'sortOrder' | '-sortOrder' | 'finalizedAt' | '-finalizedAt';
+  mode?: 'simulation' | 'live';
+  isFinal?: boolean;
+  simulationRating?: 'better' | 'worse' | 'neutral';
+};
+
+type CreatePairingRunParams = {
+  actorUserId: string;
+  roundId: string;
+  command: CreatePairingRunCommand;
+};
+
+type PatchPairingRunParams = {
+  actorUserId: string;
+  pairingRunId: string;
+  command: PatchPairingRunCommand;
+};
+
+type FinalizePairingRunParams = {
+  actorUserId: string;
+  pairingRunId: string;
+};
+
+type DeletePairingRunParams = {
+  actorUserId: string;
+  pairingRunId: string;
+};
+
+type PairingStepsListParams = {
+  actorUserId: string;
+  pairingRunId: string;
+  page: number;
+  pageSize: number;
+  sort: 'stepNo' | '-stepNo' | 'createdAt' | '-createdAt';
+};
+
+type PutPairingStepsParams = {
+  actorUserId: string;
+  pairingRunId: string;
+  command: PutPairingStepsCommand;
+};
+
+type PairingAssignmentsListParams = {
+  actorUserId: string;
+  pairingRunId: string;
+  page: number;
+  pageSize: number;
+  sort: 'playerMembershipId' | '-playerMembershipId' | 'opponentPlayerId' | '-opponentPlayerId' | 'createdAt' | '-createdAt';
+  playerMembershipId?: string;
+  opponentPlayerId?: string;
+};
+
+type PutPairingAssignmentsParams = {
+  actorUserId: string;
+  pairingRunId: string;
+  command: PutPairingAssignmentsCommand;
+};
+
+type PatchPairingAssignmentResultParams = {
+  actorUserId: string;
+  assignmentId: string;
+  command: PatchPairingAssignmentResultCommand;
 };
 
 type CreateRoundOpponentCommand = {
@@ -781,6 +892,460 @@ export class RoundsService {
     };
   }
 
+  /** Return aggregate matrix payload for captain/player view. */
+  async getRoundMatrix(params: RoundMatrixParams): Promise<RoundMatrixDto> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const actorMembership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    if (actorMembership.role === 'player' && params.view !== 'player') {
+      throw this.createForbiddenException();
+    }
+    const visiblePlayerMembershipIds = actorMembership.role === 'player'
+      ? [actorMembership.id]
+      : undefined;
+    const cells = await this.buildRoundMatrixCells(round.id, visiblePlayerMembershipIds);
+    const playerMemberships = await this.listRoundPlayerMemberships(round.tournament_id, visiblePlayerMembershipIds);
+    const opponents = await this.listRoundOpponents(round.id);
+    const rows = playerMemberships.map((membership) => ({ playerMembershipId: membership.id }));
+    const columns = opponents.map((opponent) => ({ opponentPlayerId: opponent.id, name: opponent.name }));
+    return {
+      rows: rows as RoundMatrixDto['rows'],
+      columns: columns as RoundMatrixDto['columns'],
+      cells,
+    };
+  }
+
+  /** Return matrix cells list for captain dashboard (with conditional player visibility). */
+  async listRoundMatrixCells(params: RoundMatrixCellsListParams): Promise<PaginatedListDto<MatrixCellDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const actorMembership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    if (actorMembership.role === 'player' && params.playerMembershipId && params.playerMembershipId !== actorMembership.id) {
+      throw this.createForbiddenException();
+    }
+    const visiblePlayerMembershipIds = actorMembership.role === 'player' ? [actorMembership.id] : undefined;
+    let cells = await this.buildRoundMatrixCells(round.id, visiblePlayerMembershipIds);
+    if (params.playerMembershipId) {
+      cells = cells.filter((cell) => cell.playerMembershipId === params.playerMembershipId);
+    }
+    if (params.opponentPlayerId) {
+      cells = cells.filter((cell) => cell.opponentPlayerId === params.opponentPlayerId);
+    }
+    const sortedCells = this.sortMatrixCells(cells, params.sort);
+    const offset = (params.page - 1) * params.pageSize;
+    const paginatedCells = sortedCells.slice(offset, offset + params.pageSize);
+    return {
+      data: paginatedCells,
+      pagination: this.createPagination(params.page, params.pageSize, sortedCells.length),
+    };
+  }
+
+  /** Return matrix modal details for one player/opponent cell. */
+  async getRoundMatrixCell(params: RoundMatrixCellParams): Promise<MatrixCellDetailDto> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const actorMembership = await this.resolveActiveMembership(params.actorUserId, round.tournament_id);
+    if (actorMembership.role === 'player' && actorMembership.id !== params.playerMembershipId) {
+      throw this.createForbiddenException();
+    }
+    await this.ensurePlayerMembershipBelongsToTournament(round.tournament_id, params.playerMembershipId);
+    await this.ensureOpponentBelongsToRound(round.id, params.opponentPlayerId);
+    const { data: estimationData, error: estimationError } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select(
+        'id, player_membership_id, opponent_player_id, list_opened_at, has_first_turn_impact, score_single, score_go_first, score_go_second, comment',
+      )
+      .eq('round_id', round.id)
+      .eq('player_membership_id', params.playerMembershipId)
+      .eq('opponent_player_id', params.opponentPlayerId)
+      .maybeSingle();
+    if (estimationError) {
+      this.logger.error('Failed to fetch matrix cell estimation', estimationError);
+      throw this.createInternalErrorException();
+    }
+    const { data: tablePreferenceData, error: tablePreferenceError } = await this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .select('id, player_membership_id, round_table_id, preference')
+      .eq('round_id', round.id)
+      .eq('player_membership_id', params.playerMembershipId);
+    if (tablePreferenceError || !tablePreferenceData) {
+      this.logger.error('Failed to fetch matrix cell table preferences', tablePreferenceError);
+      throw this.createInternalErrorException();
+    }
+    if (!estimationData && tablePreferenceData.length === 0) {
+      throw this.createCellNotFoundException();
+    }
+    return {
+      playerMembershipId: params.playerMembershipId,
+      opponentPlayerId: params.opponentPlayerId,
+      estimation: estimationData ? this.mapMatchupEstimationRow(estimationData) : null,
+      tablePreferences: tablePreferenceData.map((preferenceRow) => this.mapTablePreferenceRow(preferenceRow)),
+      comment: estimationData?.comment ?? null,
+    };
+  }
+
+  /** List pairing runs (simulations + live flow) for a round. */
+  async listPairingRuns(params: PairingRunsListParams): Promise<PaginatedListDto<PairingRunSummaryDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolvePairingRunsSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .select('id, mode, name, simulation_rating, is_final, finalized_at', { count: 'exact' })
+      .eq('round_id', round.id);
+    if (params.mode) {
+      query = query.eq('mode', params.mode);
+    }
+    if (params.isFinal !== undefined) {
+      query = query.eq('is_final', params.isFinal);
+    }
+    if (params.simulationRating) {
+      query = query.eq('simulation_rating', params.simulationRating);
+    }
+    const { data, error, count } = await query.order(column, { ascending }).range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list pairing runs', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapPairingRunSummaryRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
+  /** Create pairing simulation or live run for a round (captain). */
+  async createPairingRun(params: CreatePairingRunParams): Promise<PairingRunDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const tournament = await this.fetchTournamentOrFail(round.tournament_id);
+    const captainMembershipId = await this.resolveCaptainMembership(params.actorUserId, tournament.team_id);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .insert({
+        round_id: round.id,
+        mode: params.command.mode,
+        name: params.command.name ?? null,
+        simulation_rating: params.command.simulationRating ?? null,
+        sort_order: params.command.sortOrder ?? null,
+        created_by_membership_id: captainMembershipId,
+      })
+      .select('*')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Pairing run data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to create pairing run', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapPairingRunRow(data);
+  }
+
+  /** Update pairing run metadata (captain). */
+  async patchPairingRun(params: PatchPairingRunParams): Promise<PairingRunDto> {
+    const pairingRun = await this.fetchPairingRunOrFail(params.pairingRunId);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    this.ensureRoundEditable(round);
+    const updatePayload: Database['public']['Tables']['pairing_runs']['Update'] = {};
+    if (params.command.name !== undefined) {
+      updatePayload.name = params.command.name;
+    }
+    if (params.command.simulationRating !== undefined) {
+      updatePayload.simulation_rating = params.command.simulationRating;
+    }
+    if (params.command.sortOrder !== undefined) {
+      updatePayload.sort_order = params.command.sortOrder;
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .update(updatePayload)
+      .eq('id', pairingRun.id)
+      .select('*')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error)) {
+        throw this.createValidationException('Pairing run data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to patch pairing run', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapPairingRunRow(data);
+  }
+
+  /** Finalize one live pairing run and mark it as final. */
+  async finalizePairingRun(params: FinalizePairingRunParams): Promise<PairingRunFinalizeResponseDto> {
+    const pairingRun = await this.fetchPairingRunOrFail(params.pairingRunId);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    this.ensureRoundEditable(round);
+    if (pairingRun.mode !== 'live') {
+      throw this.createInvalidModeException();
+    }
+    const { data: existingFinalLiveRun, error: existingFinalLiveRunError } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .select('id')
+      .eq('round_id', pairingRun.round_id)
+      .eq('mode', 'live')
+      .eq('is_final', true)
+      .neq('id', pairingRun.id)
+      .maybeSingle();
+    if (existingFinalLiveRunError) {
+      this.logger.error('Failed to check existing final live run', existingFinalLiveRunError);
+      throw this.createInternalErrorException();
+    }
+    if (pairingRun.is_final || existingFinalLiveRun) {
+      throw this.createLiveFinalAlreadyExistsException();
+    }
+    const finalizedAt = new Date().toISOString();
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .update({ is_final: true, finalized_at: finalizedAt })
+      .eq('id', pairingRun.id)
+      .select('id, mode, is_final, finalized_at')
+      .single();
+    if (error || !data) {
+      this.logger.error('Failed to finalize pairing run', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      id: data.id,
+      mode: 'live',
+      isFinal: true,
+      finalizedAt: data.finalized_at!,
+    };
+  }
+
+  /** Delete pairing run with all dependent rows (captain). */
+  async deletePairingRun(params: DeletePairingRunParams): Promise<DeletedSuccessDto> {
+    const pairingRun = await this.fetchPairingRunOrFail(params.pairingRunId);
+    await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    if (pairingRun.mode === 'live' && pairingRun.is_final) {
+      throw this.createCannotDeleteFinalLiveRunException();
+    }
+    const { error } = await this.supabaseService.getClient().from('pairing_runs').delete().eq('id', pairingRun.id);
+    if (error) {
+      this.logger.error('Failed to delete pairing run', error);
+      throw this.createInternalErrorException();
+    }
+    return { deleted: true };
+  }
+
+  /** List steps in pairing run. */
+  async listPairingSteps(params: PairingStepsListParams): Promise<PaginatedListDto<PairingStepDto>> {
+    const pairingRun = await this.fetchPairingRunWithAccess(params.actorUserId, params.pairingRunId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolvePairingStepsSort(params.sort);
+    const { data, error, count } = await this.supabaseService
+      .getClient()
+      .from('pairing_steps')
+      .select('id, step_no, phase_key, payload', { count: 'exact' })
+      .eq('pairing_run_id', pairingRun.id)
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list pairing steps', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapPairingStepRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
+  /** Replace ordered full step sequence in pairing run (captain). */
+  async putPairingSteps(params: PutPairingStepsParams): Promise<PutPairingStepsResponseDto> {
+    const pairingRun = await this.fetchPairingRunOrFail(params.pairingRunId);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    this.ensureRoundEditable(round);
+    this.ensureNoDuplicateStepNumbers(params.command.steps);
+    const { error: deleteError } = await this.supabaseService
+      .getClient()
+      .from('pairing_steps')
+      .delete()
+      .eq('pairing_run_id', pairingRun.id);
+    if (deleteError) {
+      this.logger.error('Failed to clear pairing steps', deleteError);
+      throw this.createInternalErrorException();
+    }
+    if (params.command.steps.length === 0) {
+      return { data: [] };
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_steps')
+      .insert(
+        params.command.steps.map((step) => ({
+          pairing_run_id: pairingRun.id,
+          step_no: step.stepNo,
+          phase_key: step.phaseKey,
+          payload: step.payload,
+        })),
+      )
+      .select('id, step_no, phase_key, payload')
+      .order('step_no', { ascending: true });
+    if (error || !data) {
+      if (this.isUniqueViolation(error)) {
+        throw this.createDuplicateStepNoException();
+      }
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Pairing step data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to put pairing steps', error);
+      throw this.createInternalErrorException();
+    }
+    return { data: data.map((row) => this.mapPairingStepRow(row)) };
+  }
+
+  /** List assignments in pairing run. */
+  async listPairingAssignments(params: PairingAssignmentsListParams): Promise<PaginatedListDto<PairingAssignmentDto>> {
+    const pairingRun = await this.fetchPairingRunWithAccess(params.actorUserId, params.pairingRunId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolvePairingAssignmentsSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .select('id, player_membership_id, opponent_player_id, round_table_id, estimation_id, game_result', { count: 'exact' })
+      .eq('pairing_run_id', pairingRun.id);
+    if (params.playerMembershipId) {
+      query = query.eq('player_membership_id', params.playerMembershipId);
+    }
+    if (params.opponentPlayerId) {
+      query = query.eq('opponent_player_id', params.opponentPlayerId);
+    }
+    const { data, error, count } = await query.order(column, { ascending }).range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list pairing assignments', error);
+      throw this.createInternalErrorException();
+    }
+    return {
+      data: data.map((row) => this.mapPairingAssignmentRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, count ?? 0),
+    };
+  }
+
+  /** Replace full set of assignments in pairing run (captain). */
+  async putPairingAssignments(params: PutPairingAssignmentsParams): Promise<PutPairingAssignmentsResponseDto> {
+    const pairingRun = await this.fetchPairingRunOrFail(params.pairingRunId);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    this.ensureRoundEditable(round);
+    this.ensureNoDuplicatePlayersOrOpponents(params.command.assignments);
+    const { error: deleteError } = await this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .delete()
+      .eq('pairing_run_id', pairingRun.id);
+    if (deleteError) {
+      this.logger.error('Failed to clear pairing assignments', deleteError);
+      throw this.createInternalErrorException();
+    }
+    if (params.command.assignments.length === 0) {
+      return { data: [] };
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .insert(
+        params.command.assignments.map((assignment) => ({
+          pairing_run_id: pairingRun.id,
+          player_membership_id: assignment.playerMembershipId,
+          opponent_player_id: assignment.opponentPlayerId,
+          round_table_id: assignment.roundTableId ?? null,
+          estimation_id: assignment.estimationId ?? null,
+        })),
+      )
+      .select('id, player_membership_id, opponent_player_id, round_table_id, estimation_id, game_result');
+    if (error || !data) {
+      if (this.isUniqueViolation(error)) {
+        throw this.createDuplicatePlayerOrOpponentException();
+      }
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Pairing assignment data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to put pairing assignments', error);
+      throw this.createInternalErrorException();
+    }
+    return { data: data.map((row) => this.mapPairingAssignmentRow(row)) };
+  }
+
+  /** Update one assignment game result (captain). */
+  async patchPairingAssignmentResult(params: PatchPairingAssignmentResultParams): Promise<PairingAssignmentDto> {
+    const assignment = await this.fetchPairingAssignmentOrFail(params.assignmentId);
+    const pairingRun = await this.fetchPairingRunOrFail(assignment.pairing_run_id);
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, pairingRun.round_id);
+    this.ensureRoundEditable(round);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .update({ game_result: params.command.gameResult })
+      .eq('id', assignment.id)
+      .select('id, player_membership_id, opponent_player_id, round_table_id, estimation_id, game_result')
+      .single();
+    if (error || !data) {
+      if (this.isCheckViolation(error)) {
+        throw this.createValidationException('Pairing assignment result does not satisfy constraints.');
+      }
+      this.logger.error('Failed to patch pairing assignment result', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapPairingAssignmentRow(data);
+  }
+
+  /** Return final live pairing summary for read-only post-live screen. */
+  async getFinalPairings(actorUserId: string, roundId: string): Promise<FinalPairingsResponseDto> {
+    const round = await this.fetchRoundWithAccess(actorUserId, roundId);
+    const { data: finalRun, error: finalRunError } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .select('id')
+      .eq('round_id', round.id)
+      .eq('mode', 'live')
+      .eq('is_final', true)
+      .maybeSingle();
+    if (finalRunError) {
+      this.logger.error('Failed to fetch final live pairing run', finalRunError);
+      throw this.createInternalErrorException();
+    }
+    if (!finalRun) {
+      throw this.createFinalLiveRunNotFoundException();
+    }
+    const { data: assignmentRows, error: assignmentsError } = await this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .select('id, player_membership_id, opponent_player_id, round_table_id, estimation_id, game_result')
+      .eq('pairing_run_id', finalRun.id)
+      .order('created_at', { ascending: true });
+    if (assignmentsError || !assignmentRows) {
+      this.logger.error('Failed to fetch final pairing assignments', assignmentsError);
+      throw this.createInternalErrorException();
+    }
+    const tableIds = assignmentRows
+      .map((row) => row.round_table_id)
+      .filter((tableId): tableId is string => Boolean(tableId));
+    const estimationIds = assignmentRows
+      .map((row) => row.estimation_id)
+      .filter((estimationId): estimationId is string => Boolean(estimationId));
+    const tableById = await this.fetchRoundTablesByIds(tableIds);
+    const estimationById = await this.fetchEstimationsByIds(estimationIds);
+    return {
+      roundId: round.id,
+      pairings: assignmentRows.map((assignmentRow) => {
+        const estimation = assignmentRow.estimation_id ? estimationById.get(assignmentRow.estimation_id) ?? null : null;
+        const table = assignmentRow.round_table_id ? tableById.get(assignmentRow.round_table_id) ?? null : null;
+        return {
+          playerMembershipId: assignmentRow.player_membership_id,
+          opponentPlayerId: assignmentRow.opponent_player_id,
+          estimation,
+          table,
+          comment: estimation?.comment ?? null,
+          gameResult: assignmentRow.game_result,
+        };
+      }),
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Access control helpers
   // -------------------------------------------------------------------------
@@ -809,6 +1374,12 @@ export class RoundsService {
     const tournament = await this.fetchTournamentOrFail(round.tournament_id);
     await this.resolveCaptainMembership(actorUserId, tournament.team_id);
     return round;
+  }
+
+  private async fetchPairingRunWithAccess(actorUserId: string, pairingRunId: string): Promise<PairingRunRow> {
+    const pairingRun = await this.fetchPairingRunOrFail(pairingRunId);
+    await this.fetchRoundWithAccess(actorUserId, pairingRun.round_id);
+    return pairingRun;
   }
 
   private async fetchTournamentOrFail(tournamentId: string): Promise<TournamentRow> {
@@ -914,6 +1485,40 @@ export class RoundsService {
     return data;
   }
 
+  private async fetchPairingRunOrFail(pairingRunId: string): Promise<PairingRunRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_runs')
+      .select('*')
+      .eq('id', pairingRunId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch pairing run', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createPairingRunNotFoundException();
+    }
+    return data;
+  }
+
+  private async fetchPairingAssignmentOrFail(assignmentId: string): Promise<PairingAssignmentRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('pairing_assignments')
+      .select('*')
+      .eq('id', assignmentId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch pairing assignment', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createAssignmentNotFoundException();
+    }
+    return data;
+  }
+
   private async ensureTeamMember(actorUserId: string, teamId: string): Promise<void> {
     const { data, error } = await this.supabaseService
       .getClient()
@@ -1011,6 +1616,25 @@ export class RoundsService {
     }
   }
 
+  private ensureNoDuplicateStepNumbers(steps: PutPairingStepsCommand['steps']): void {
+    const stepNumbers = steps.map((step) => step.stepNo);
+    const uniqueStepNumbers = new Set(stepNumbers);
+    if (uniqueStepNumbers.size !== stepNumbers.length) {
+      throw this.createDuplicateStepNoException();
+    }
+  }
+
+  private ensureNoDuplicatePlayersOrOpponents(assignments: PutPairingAssignmentsCommand['assignments']): void {
+    const playerMembershipIds = assignments.map((assignment) => assignment.playerMembershipId);
+    const opponentPlayerIds = assignments.map((assignment) => assignment.opponentPlayerId);
+    if (new Set(playerMembershipIds).size !== playerMembershipIds.length) {
+      throw this.createDuplicatePlayerOrOpponentException();
+    }
+    if (new Set(opponentPlayerIds).size !== opponentPlayerIds.length) {
+      throw this.createDuplicatePlayerOrOpponentException();
+    }
+  }
+
   private ensurePlayerMembership(membership: TeamMembershipRow): void {
     if (membership.role !== 'player') {
       throw this.createOnlyPlayerRoleAllowedException();
@@ -1087,6 +1711,195 @@ export class RoundsService {
       throw this.createInternalErrorException();
     }
     return Boolean(data);
+  }
+
+  private async listRoundPlayerMemberships(
+    tournamentId: string,
+    onlyMembershipIds?: string[],
+  ): Promise<Array<Pick<TeamMembershipRow, 'id'>>> {
+    const tournament = await this.fetchTournamentOrFail(tournamentId);
+    let query = this.supabaseService
+      .getClient()
+      .from('team_memberships')
+      .select('id')
+      .eq('team_id', tournament.team_id)
+      .eq('role', 'player')
+      .eq('is_playing', true)
+      .is('left_at', null);
+    if (onlyMembershipIds && onlyMembershipIds.length > 0) {
+      query = query.in('id', onlyMembershipIds);
+    }
+    const { data, error } = await query.order('joined_at', { ascending: true });
+    if (error || !data) {
+      this.logger.error('Failed to list round player memberships', error);
+      throw this.createInternalErrorException();
+    }
+    return data;
+  }
+
+  private async listRoundOpponents(roundId: string): Promise<Array<Pick<OpponentPlayerRow, 'id' | 'name'>>> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .select('id, name')
+      .eq('round_id', roundId)
+      .order('name', { ascending: true });
+    if (error || !data) {
+      this.logger.error('Failed to list round opponents for matrix', error);
+      throw this.createInternalErrorException();
+    }
+    return data;
+  }
+
+  private async fetchEstimationsByIds(estimationIds: string[]): Promise<Map<string, MatchupEstimationDto>> {
+    if (estimationIds.length === 0) {
+      return new Map<string, MatchupEstimationDto>();
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select(
+        'id, player_membership_id, opponent_player_id, list_opened_at, has_first_turn_impact, score_single, score_go_first, score_go_second, comment',
+      )
+      .in('id', estimationIds);
+    if (error || !data) {
+      this.logger.error('Failed to fetch estimations by ids', error);
+      throw this.createInternalErrorException();
+    }
+    const estimationById = new Map<string, MatchupEstimationDto>();
+    data.forEach((row) => {
+      estimationById.set(row.id, this.mapMatchupEstimationRow(row));
+    });
+    return estimationById;
+  }
+
+  private async fetchRoundTablesByIds(tableIds: string[]): Promise<Map<string, RoundTableDto>> {
+    if (tableIds.length === 0) {
+      return new Map<string, RoundTableDto>();
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('round_tables')
+      .select('id, table_no, table_name, image_asset_id')
+      .in('id', tableIds);
+    if (error || !data) {
+      this.logger.error('Failed to fetch round tables by ids', error);
+      throw this.createInternalErrorException();
+    }
+    const tableById = new Map<string, RoundTableDto>();
+    data.forEach((row) => {
+      tableById.set(row.id, this.mapRoundTableRow(row));
+    });
+    return tableById;
+  }
+
+  private async buildRoundMatrixCells(roundId: string, onlyPlayerMembershipIds?: string[]): Promise<MatrixCellDto[]> {
+    const players = await this.listRoundPlayerMemberships((await this.fetchRoundOrFail(roundId)).tournament_id, onlyPlayerMembershipIds);
+    const opponents = await this.listRoundOpponents(roundId);
+    const playerIds = players.map((player) => player.id);
+    if (playerIds.length === 0 || opponents.length === 0) {
+      return [];
+    }
+    const { data: estimationData, error: estimationError } = await this.supabaseService
+      .getClient()
+      .from('matchup_estimations')
+      .select(
+        'id, player_membership_id, opponent_player_id, list_opened_at, has_first_turn_impact, score_single, score_go_first, score_go_second, comment',
+      )
+      .eq('round_id', roundId)
+      .in('player_membership_id', playerIds);
+    if (estimationError || !estimationData) {
+      this.logger.error('Failed to list matrix estimations', estimationError);
+      throw this.createInternalErrorException();
+    }
+    const estimationByCell = new Map<string, MatchupEstimationDto>();
+    estimationData.forEach((row) => {
+      estimationByCell.set(this.createMatrixCellKey(row.player_membership_id, row.opponent_player_id), this.mapMatchupEstimationRow(row));
+    });
+    const { data: preferenceData, error: preferenceError } = await this.supabaseService
+      .getClient()
+      .from('table_preferences')
+      .select('player_membership_id, preference')
+      .eq('round_id', roundId)
+      .in('player_membership_id', playerIds);
+    if (preferenceError || !preferenceData) {
+      this.logger.error('Failed to list matrix table preferences', preferenceError);
+      throw this.createInternalErrorException();
+    }
+    const preferenceSummaryByPlayer = new Map<string, { preferred: number; notPreferred: number }>();
+    preferenceData.forEach((preferenceRow) => {
+      const currentSummary = preferenceSummaryByPlayer.get(preferenceRow.player_membership_id) ?? { preferred: 0, notPreferred: 0 };
+      if (preferenceRow.preference === 'preferred') {
+        currentSummary.preferred += 1;
+      }
+      if (preferenceRow.preference === 'not_preferred') {
+        currentSummary.notPreferred += 1;
+      }
+      preferenceSummaryByPlayer.set(preferenceRow.player_membership_id, currentSummary);
+    });
+    const cells: MatrixCellDto[] = [];
+    players.forEach((player) => {
+      opponents.forEach((opponent) => {
+        const estimation = estimationByCell.get(this.createMatrixCellKey(player.id, opponent.id)) ?? null;
+        const preferenceSummary = preferenceSummaryByPlayer.get(player.id) ?? null;
+        cells.push({
+          playerMembershipId: player.id,
+          opponentPlayerId: opponent.id,
+          estimation,
+          tablePreferenceSummary: preferenceSummary,
+          comment: estimation?.comment ?? null,
+        });
+      });
+    });
+    return cells;
+  }
+
+  private sortMatrixCells(
+    cells: MatrixCellDto[],
+    sort: RoundMatrixCellsListParams['sort'],
+  ): MatrixCellDto[] {
+    const sortedCells = [...cells];
+    sortedCells.sort((leftCell, rightCell) => {
+      if (sort === 'playerMembershipId') {
+        const byPlayer = leftCell.playerMembershipId.localeCompare(rightCell.playerMembershipId);
+        return byPlayer !== 0 ? byPlayer : leftCell.opponentPlayerId.localeCompare(rightCell.opponentPlayerId);
+      }
+      if (sort === '-playerMembershipId') {
+        const byPlayer = rightCell.playerMembershipId.localeCompare(leftCell.playerMembershipId);
+        return byPlayer !== 0 ? byPlayer : leftCell.opponentPlayerId.localeCompare(rightCell.opponentPlayerId);
+      }
+      if (sort === 'opponentPlayerId') {
+        const byOpponent = leftCell.opponentPlayerId.localeCompare(rightCell.opponentPlayerId);
+        return byOpponent !== 0 ? byOpponent : leftCell.playerMembershipId.localeCompare(rightCell.playerMembershipId);
+      }
+      const byOpponent = rightCell.opponentPlayerId.localeCompare(leftCell.opponentPlayerId);
+      return byOpponent !== 0 ? byOpponent : leftCell.playerMembershipId.localeCompare(rightCell.playerMembershipId);
+    });
+    return sortedCells;
+  }
+
+  private async ensurePlayerMembershipBelongsToTournament(tournamentId: string, playerMembershipId: string): Promise<void> {
+    const tournament = await this.fetchTournamentOrFail(tournamentId);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('team_memberships')
+      .select('id')
+      .eq('id', playerMembershipId)
+      .eq('team_id', tournament.team_id)
+      .eq('role', 'player')
+      .is('left_at', null)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to validate player membership for matrix', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw this.createCellNotFoundException();
+    }
+  }
+
+  private createMatrixCellKey(playerMembershipId: string, opponentPlayerId: string): string {
+    return `${playerMembershipId}:${opponentPlayerId}`;
   }
 
   // -------------------------------------------------------------------------
@@ -1169,6 +1982,42 @@ export class RoundsService {
       '-updatedAt': { column: 'updated_at', ascending: false },
     };
     return mapping[sort] ?? { column: 'created_at', ascending: false };
+  }
+
+  private resolvePairingRunsSort(sort: PairingRunsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+      sortOrder: { column: 'sort_order', ascending: true },
+      '-sortOrder': { column: 'sort_order', ascending: false },
+      finalizedAt: { column: 'finalized_at', ascending: true },
+      '-finalizedAt': { column: 'finalized_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'created_at', ascending: false };
+  }
+
+  private resolvePairingStepsSort(sort: PairingStepsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      stepNo: { column: 'step_no', ascending: true },
+      '-stepNo': { column: 'step_no', ascending: false },
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'step_no', ascending: true };
+  }
+
+  private resolvePairingAssignmentsSort(
+    sort: PairingAssignmentsListParams['sort'],
+  ): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      playerMembershipId: { column: 'player_membership_id', ascending: true },
+      '-playerMembershipId': { column: 'player_membership_id', ascending: false },
+      opponentPlayerId: { column: 'opponent_player_id', ascending: true },
+      '-opponentPlayerId': { column: 'opponent_player_id', ascending: false },
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'player_membership_id', ascending: true };
   }
 
   // -------------------------------------------------------------------------
@@ -1287,6 +2136,57 @@ export class RoundsService {
     };
   }
 
+  private mapPairingRunSummaryRow(
+    row: Pick<PairingRunRow, 'id' | 'mode' | 'name' | 'simulation_rating' | 'is_final' | 'finalized_at'>,
+  ): PairingRunSummaryDto {
+    return {
+      id: row.id,
+      mode: row.mode,
+      name: row.name,
+      simulationRating: row.simulation_rating,
+      isFinal: row.is_final,
+      finalizedAt: row.finalized_at,
+    };
+  }
+
+  private mapPairingRunRow(row: PairingRunRow): PairingRunDto {
+    return {
+      id: row.id,
+      mode: row.mode,
+      name: row.name,
+      simulationRating: row.simulation_rating,
+      isFinal: row.is_final,
+      finalizedAt: row.finalized_at,
+      roundId: row.round_id,
+      createdByMembershipId: row.created_by_membership_id,
+      sortOrder: row.sort_order,
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+    };
+  }
+
+  private mapPairingStepRow(row: Pick<PairingStepRow, 'id' | 'step_no' | 'phase_key' | 'payload'>): PairingStepDto {
+    return {
+      id: row.id,
+      stepNo: row.step_no,
+      phaseKey: row.phase_key,
+      payload: row.payload,
+    };
+  }
+
+  private mapPairingAssignmentRow(
+    row: Pick<PairingAssignmentRow, 'id' | 'player_membership_id' | 'opponent_player_id' | 'round_table_id' | 'estimation_id' | 'game_result'>,
+  ): PairingAssignmentDto {
+    return {
+      id: row.id,
+      playerMembershipId: row.player_membership_id,
+      opponentPlayerId: row.opponent_player_id,
+      roundTableId: row.round_table_id,
+      estimationId: row.estimation_id,
+      gameResult: row.game_result,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Pagination & error helpers
   // -------------------------------------------------------------------------
@@ -1326,6 +2226,64 @@ export class RoundsService {
   private createOnlyPlayerRoleAllowedException(): ForbiddenException {
     return new ForbiddenException({
       error: { code: 'ONLY_PLAYER_ROLE_ALLOWED', message: 'Only player role can perform this action.', details: {} },
+    });
+  }
+
+  private createCellNotFoundException(): NotFoundException {
+    return new NotFoundException({
+      error: { code: 'CELL_NOT_FOUND', message: 'Matrix cell not found.', details: {} },
+    });
+  }
+
+  private createPairingRunNotFoundException(): NotFoundException {
+    return new NotFoundException({
+      error: { code: 'PAIRING_RUN_NOT_FOUND', message: 'Pairing run not found.', details: {} },
+    });
+  }
+
+  private createAssignmentNotFoundException(): NotFoundException {
+    return new NotFoundException({
+      error: { code: 'ASSIGNMENT_NOT_FOUND', message: 'Pairing assignment not found.', details: {} },
+    });
+  }
+
+  private createFinalLiveRunNotFoundException(): NotFoundException {
+    return new NotFoundException({
+      error: { code: 'FINAL_LIVE_RUN_NOT_FOUND', message: 'Final live pairing run not found.', details: {} },
+    });
+  }
+
+  private createDuplicateStepNoException(): ConflictException {
+    return new ConflictException({
+      error: { code: 'DUPLICATE_STEP_NO', message: 'Step number must be unique.', details: {} },
+    });
+  }
+
+  private createDuplicatePlayerOrOpponentException(): ConflictException {
+    return new ConflictException({
+      error: {
+        code: 'DUPLICATE_PLAYER_OR_OPPONENT',
+        message: 'Player and opponent assignments must be unique in payload.',
+        details: {},
+      },
+    });
+  }
+
+  private createInvalidModeException(): BadRequestException {
+    return new BadRequestException({
+      error: { code: 'INVALID_MODE', message: 'Only live pairing run can be finalized.', details: {} },
+    });
+  }
+
+  private createLiveFinalAlreadyExistsException(): ConflictException {
+    return new ConflictException({
+      error: { code: 'LIVE_FINAL_ALREADY_EXISTS', message: 'Final live pairing run already exists.', details: {} },
+    });
+  }
+
+  private createCannotDeleteFinalLiveRunException(): ConflictException {
+    return new ConflictException({
+      error: { code: 'CANNOT_DELETE_FINAL_LIVE_RUN', message: 'Final live pairing run cannot be deleted.', details: {} },
     });
   }
 

@@ -11,6 +11,8 @@ const mockMembershipId = '770e8400-e29b-41d4-a716-446655440000';
 const mockOpponentId = '890e8400-e29b-41d4-a716-446655440000';
 const mockTableId = '980e8400-e29b-41d4-a716-446655440000';
 const mockEstimationId = '780e8400-e29b-41d4-a716-446655440000';
+const mockSecondMembershipId = '670e8400-e29b-41d4-a716-446655440001';
+const mockPairingRunId = '570e8400-e29b-41d4-a716-446655440000';
 
 const mockRoundDto = {
   id: mockRoundId,
@@ -130,6 +132,74 @@ describe('RoundsController', () => {
     }),
     deleteTablePreference: jest.fn().mockResolvedValue({ deleted: true, interpretedAs: 'neutral' }),
     getMyEstimationStatus: jest.fn().mockResolvedValue({ completed: true, opponentCount: 5, myEstimationsCount: 5 }),
+    getRoundMatrix: jest.fn().mockResolvedValue({
+      rows: [{ playerMembershipId: mockMembershipId }],
+      columns: [{ opponentPlayerId: mockOpponentId, name: 'Opponent A' }],
+      cells: [{
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: mockOpponentId,
+        estimation: null,
+        tablePreferenceSummary: { preferred: 1, notPreferred: 0 },
+        comment: null,
+      }],
+    }),
+    listRoundMatrixCells: jest.fn().mockResolvedValue({
+      data: [{
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: mockOpponentId,
+        estimation: null,
+        tablePreferenceSummary: { preferred: 1, notPreferred: 0 },
+        comment: null,
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    getRoundMatrixCell: jest.fn().mockResolvedValue({
+      playerMembershipId: mockMembershipId,
+      opponentPlayerId: mockOpponentId,
+      estimation: null,
+      tablePreferences: [{
+        id: '670e8400-e29b-41d4-a716-446655440000',
+        playerMembershipId: mockMembershipId,
+        roundTableId: mockTableId,
+        preference: 'preferred',
+      }],
+      comment: null,
+    }),
+    listPairingRuns: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockPairingRunId,
+        mode: 'simulation',
+        name: 'Plan A',
+        simulationRating: 'neutral',
+        isFinal: false,
+        finalizedAt: null,
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    createPairingRun: jest.fn().mockResolvedValue({
+      id: mockPairingRunId,
+      mode: 'simulation',
+      name: 'Plan A',
+      simulationRating: 'neutral',
+      isFinal: false,
+      finalizedAt: null,
+      roundId: mockRoundId,
+      createdByMembershipId: mockMembershipId,
+      sortOrder: 1,
+      createdAt: '2025-01-01T00:00:00.000Z',
+      updatedAt: '2025-01-01T00:00:00.000Z',
+    }),
+    getFinalPairings: jest.fn().mockResolvedValue({
+      roundId: mockRoundId,
+      pairings: [{
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: mockOpponentId,
+        estimation: null,
+        table: null,
+        comment: null,
+        gameResult: 14,
+      }],
+    }),
   };
 
   beforeEach(async () => {
@@ -373,6 +443,105 @@ describe('RoundsController', () => {
       const actualResult = await controller.getMyEstimationStatus(mockUserId, mockRoundId);
       expect(actualResult.completed).toBe(true);
       expect(mockRoundsService.getMyEstimationStatus).toHaveBeenCalledWith(mockUserId, mockRoundId);
+    });
+  });
+
+  describe('getRoundMatrix', () => {
+    it('should parse view filter and call service', async () => {
+      const actualResult = await controller.getRoundMatrix(mockUserId, mockRoundId, { 'filter[view]': 'player' });
+      expect(actualResult.cells).toHaveLength(1);
+      expect(mockRoundsService.getRoundMatrix).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        view: 'player',
+      });
+    });
+  });
+
+  describe('listRoundMatrixCells', () => {
+    it('should parse filters and call service', async () => {
+      const actualResult = await controller.listRoundMatrixCells(mockUserId, mockRoundId, {
+        sort: '-opponentPlayerId',
+        'filter[playerMembershipId]': mockSecondMembershipId,
+        'filter[opponentPlayerId]': mockOpponentId,
+      });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listRoundMatrixCells).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: '-opponentPlayerId',
+        playerMembershipId: mockSecondMembershipId,
+        opponentPlayerId: mockOpponentId,
+      });
+    });
+  });
+
+  describe('getRoundMatrixCell', () => {
+    it('should validate params and call service', async () => {
+      const actualResult = await controller.getRoundMatrixCell(
+        mockUserId,
+        mockRoundId,
+        mockMembershipId,
+        mockOpponentId,
+      );
+      expect(actualResult.playerMembershipId).toBe(mockMembershipId);
+      expect(mockRoundsService.getRoundMatrixCell).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        playerMembershipId: mockMembershipId,
+        opponentPlayerId: mockOpponentId,
+      });
+    });
+  });
+
+  describe('listPairingRuns', () => {
+    it('should parse filters and call service', async () => {
+      const actualResult = await controller.listPairingRuns(mockUserId, mockRoundId, {
+        'filter[mode]': 'simulation',
+        'filter[isFinal]': 'false',
+      });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listPairingRuns).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: '-createdAt',
+        mode: 'simulation',
+        isFinal: false,
+        simulationRating: undefined,
+      });
+    });
+  });
+
+  describe('createPairingRun', () => {
+    it('should map payload and call service', async () => {
+      await controller.createPairingRun(mockUserId, mockRoundId, {
+        mode: 'simulation',
+        name: 'Plan A',
+        simulationRating: 'neutral',
+        sortOrder: 1,
+      });
+      expect(mockRoundsService.createPairingRun).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: {
+          mode: 'simulation',
+          name: 'Plan A',
+          simulationRating: 'neutral',
+          sortOrder: 1,
+        },
+      });
+    });
+  });
+
+  describe('getFinalPairings', () => {
+    it('should return final pairings and call service', async () => {
+      const actualResult = await controller.getFinalPairings(mockUserId, mockRoundId);
+      expect(actualResult.roundId).toBe(mockRoundId);
+      expect(mockRoundsService.getFinalPairings).toHaveBeenCalledWith(mockUserId, mockRoundId);
     });
   });
 });
