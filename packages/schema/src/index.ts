@@ -127,3 +127,23 @@ export const rosterListQuerySchema = z.object({
   role: z.enum(["captain", "player"]).optional(),
   isPlaying: queryBooleanSchema.optional(),
 });
+
+// ---------------------------------------------------------------------------
+// 2.5 Join codes and joining flow
+// ---------------------------------------------------------------------------
+
+export const generateJoinCodeSchema = z.object({
+  ttlMinutes: z
+    .number()
+    .int("ttlMinutes must be an integer")
+    .min(1, "ttlMinutes must be at least 1")
+    .max(10080, "ttlMinutes must be at most 10080 (7 days)"),
+});
+
+export type GenerateJoinCodeInput = z.infer<typeof generateJoinCodeSchema>;
+
+export const redeemJoinCodeSchema = z.object({
+  code: z
+    .string()
+    .regex(/^[0-9]{6}$/, "Code must be exactly 6 digits"),
+});
