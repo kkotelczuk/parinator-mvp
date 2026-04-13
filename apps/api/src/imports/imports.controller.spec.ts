@@ -91,7 +91,8 @@ describe('ImportsController', () => {
 
   describe('importTournamentFallback', () => {
     it('should validate fallback payload and return warnings', async () => {
-      const mockResponse = { status: jest.fn().mockReturnThis() } as unknown as Response;
+      const mockResponseStatus = jest.fn().mockReturnThis();
+      const mockResponse = { status: mockResponseStatus } as unknown as Response;
       const actualResult = await controller.importTournamentFallback(
         mockUserId,
         {
