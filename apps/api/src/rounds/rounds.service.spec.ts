@@ -29,6 +29,7 @@ function createBuilder(options: {
   };
   builder.select = jest.fn().mockReturnValue(builder);
   builder.eq = jest.fn().mockReturnValue(builder);
+  builder.ilike = jest.fn().mockReturnValue(builder);
   builder.neq = jest.fn().mockReturnValue(builder);
   builder.in = jest.fn().mockReturnValue(builder);
   builder.order = jest.fn().mockReturnValue(builder);
@@ -36,6 +37,7 @@ function createBuilder(options: {
     .fn()
     .mockResolvedValue(options.rangeResponse ?? { data: [], error: null, count: 0 });
   builder.insert = jest.fn().mockReturnValue(builder);
+  builder.upsert = jest.fn().mockResolvedValue({ data: null, error: null, count: null });
   builder.update = jest.fn().mockReturnValue(builder);
   builder.delete = jest.fn().mockReturnValue(builder);
   builder.single = jest
@@ -82,6 +84,26 @@ const mockRoundRow = {
   locked_by_membership_id: null,
   created_at: '2025-01-01T00:00:00.000Z',
   updated_at: '2025-01-01T00:00:00.000Z',
+};
+
+const mockOpponentRow = {
+  id: 'aa0e8400-e29b-41d4-a716-446655440000',
+  round_id: mockRoundId,
+  name: 'Opponent A',
+  faction: 'Faction',
+  list_text: 'Roster',
+  external_ref: 'source-id',
+  list_opened_required: true,
+  created_at: '2025-01-01T00:00:00.000Z',
+};
+
+const mockRoundTableRow = {
+  id: 'bb0e8400-e29b-41d4-a716-446655440000',
+  round_id: mockRoundId,
+  table_no: 1,
+  table_name: 'Top table',
+  image_asset_id: null,
+  created_at: '2025-01-01T00:00:00.000Z',
 };
 
 describe('RoundsService', () => {
@@ -379,6 +401,142 @@ describe('RoundsService', () => {
       await expect(
         service.activateRound(mockUserId, mockRoundId),
       ).rejects.toThrow(ConflictException);
+    });
+  });
+
+  describe('listOpponents', () => {
+    it('should return paginated opponents list', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const memberBuilder = createBuilder({
+        limitResponse: { data: [{ id: mockMembershipId }], error: null, count: null },
+      });
+      const opponentsBuilder = createBuilder({
+        rangeResponse: { data: [mockOpponentRow], error: null, count: 1 },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return memberBuilder;
+        if (table === 'opponent_players') return opponentsBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.listOpponents({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: 'name',
+      });
+      expect(actualResult.data).toHaveLength(1);
+      expect(actualResult.data[0]?.name).toBe('Opponent A');
+      expect(actualResult.pagination.total).toBe(1);
+    });
+  });
+
+  describe('createOpponent', () => {
+    it('should create opponent for editable round', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const opponentInsertBuilder = createBuilder({
+        singleResponse: { data: mockOpponentRow, error: null, count: null },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        if (table === 'opponent_players') return opponentInsertBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.createOpponent({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: {
+          name: 'Opponent A',
+          faction: 'Faction',
+          listText: 'Roster',
+          externalRef: 'source-id',
+          listOpenedRequired: true,
+        },
+      });
+      expect(actualResult.name).toBe('Opponent A');
+    });
+  });
+
+  describe('replaceTables', () => {
+    it('should reject duplicate table numbers in payload', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        return createBuilder();
+      });
+      await expect(
+        service.replaceTables({
+          actorUserId: mockUserId,
+          roundId: mockRoundId,
+          command: {
+            tables: [
+              { tableNo: 1, tableName: 'Top table', imageAssetId: null },
+              { tableNo: 1, tableName: 'Second table', imageAssetId: null },
+            ],
+          },
+        }),
+      ).rejects.toThrow(ConflictException);
+    });
+
+    it('should replace table set and return mapped response', async () => {
+      const roundBuilder = createBuilder({
+        maybeSingleResponse: { data: mockRoundRow, error: null, count: null },
+      });
+      const tournamentBuilder = createBuilder({
+        maybeSingleResponse: { data: mockTournamentRow, error: null, count: null },
+      });
+      const captainBuilder = createBuilder({
+        singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
+      });
+      const tablesBuilder = createBuilder({
+        defaultResponse: { data: [mockRoundTableRow], error: null, count: null },
+      });
+      tablesBuilder.upsert = jest.fn().mockResolvedValue({ data: null, error: null, count: null });
+      tablesBuilder.not = jest.fn().mockReturnValue(tablesBuilder);
+      tablesBuilder.order = jest
+        .fn()
+        .mockResolvedValue({ data: [mockRoundTableRow], error: null, count: null });
+      mockFrom.mockImplementation((table: string) => {
+        if (table === 'rounds') return roundBuilder;
+        if (table === 'tournaments') return tournamentBuilder;
+        if (table === 'team_memberships') return captainBuilder;
+        if (table === 'round_tables') return tablesBuilder;
+        return createBuilder();
+      });
+      const actualResult = await service.replaceTables({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { tables: [{ tableNo: 1, tableName: 'Top table', imageAssetId: null }] },
+      });
+      expect(actualResult.data[0]?.tableNo).toBe(1);
+      expect(actualResult.data[0]?.tableName).toBe('Top table');
     });
   });
 });

@@ -213,3 +213,93 @@ export type PatchRoundInput = z.infer<typeof patchRoundSchema>;
 export const reorderRoundSchema = z.object({
   sortOrder: z.number().int().min(1, "sortOrder must be at least 1").max(200, "sortOrder must be at most 200"),
 });
+
+// ---------------------------------------------------------------------------
+// 2.7 Opponents and tables
+// ---------------------------------------------------------------------------
+
+export const opponentsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["name", "-name", "createdAt", "-createdAt"]).default("name"),
+  name: z.string().trim().min(1, "name must not be empty").optional(),
+});
+
+export const createOpponentSchema = z.object({
+  name: z.string().trim().min(1, "name must not be empty").max(200, "name must be at most 200 characters"),
+  faction: z
+    .string()
+    .trim()
+    .max(200, "faction must be at most 200 characters")
+    .nullable()
+    .optional(),
+  listText: z.string().trim().nullable().optional(),
+  externalRef: z
+    .string()
+    .trim()
+    .max(200, "externalRef must be at most 200 characters")
+    .nullable()
+    .optional(),
+  listOpenedRequired: z.boolean().default(true),
+});
+
+export type CreateOpponentInput = z.infer<typeof createOpponentSchema>;
+
+export const patchOpponentSchema = z
+  .object({
+    faction: z
+      .string()
+      .trim()
+      .max(200, "faction must be at most 200 characters")
+      .nullable()
+      .optional(),
+    listText: z.string().trim().nullable().optional(),
+  })
+  .refine((data): boolean => data.faction !== undefined || data.listText !== undefined, {
+    message: "At least one field must be provided.",
+  });
+
+export type PatchOpponentInput = z.infer<typeof patchOpponentSchema>;
+
+export const tablesListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["tableNo", "-tableNo", "createdAt", "-createdAt"]).default("tableNo"),
+  tableNo: z.coerce.number().int().min(1, "tableNo must be at least 1").optional(),
+});
+
+const roundTableInputSchema = z.object({
+  tableNo: z.number().int().min(1, "tableNo must be at least 1"),
+  tableName: z.string().trim().nullable().optional(),
+  imageAssetId: z.uuid("imageAssetId must be a valid UUID.").nullable().optional(),
+});
+
+export const putRoundTablesSchema = z.object({
+  tables: z.array(roundTableInputSchema),
+});
+
+export type PutRoundTablesInput = z.infer<typeof putRoundTablesSchema>;
+
+// ---------------------------------------------------------------------------
+// 2.8 Table assets
+// ---------------------------------------------------------------------------
+
+export const tableAssetsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["label", "-label", "createdAt", "-createdAt"]).default("label"),
+  label: z.string().trim().min(1, "label must not be empty").optional(),
+});
+
+export const createTableAssetSchema = z.object({
+  label: z.string().trim().min(1, "label must not be empty"),
+  imageUrl: z.string().url("imageUrl must be a valid URL."),
+  sourceUrl: z.string().url("sourceUrl must be a valid URL."),
+  sourceAttribution: z.string().trim().min(1, "sourceAttribution must not be empty"),
+});
+
+export type CreateTableAssetInput = z.infer<typeof createTableAssetSchema>;
+
+export const patchTableAssetSchema = z
+  .object({
+    label: z.string().trim().min(1, "label must not be empty").optional(),
+  })
+  .refine((data): boolean => data.label !== undefined, {
+    message: "At least one field must be provided.",
+  });
+
+export type PatchTableAssetInput = z.infer<typeof patchTableAssetSchema>;

@@ -5,12 +5,22 @@ import { AppService } from './app.service';
 import { AuthModule } from './auth/auth.module';
 import { JoinCodesModule } from './join-codes/join-codes.module';
 import { RoundsModule } from './rounds/rounds.module';
+import { TableAssetsModule } from './table-assets/table-assets.module';
 import { TeamsModule } from './teams/teams.module';
 import { TournamentsModule } from './tournaments/tournaments.module';
 import { UsersModule } from './users/users.module';
 
 @Module({
-  imports: [ConfigModule.forRoot({ isGlobal: true }), AuthModule, UsersModule, TeamsModule, TournamentsModule, JoinCodesModule, RoundsModule],
+  imports: [
+    ConfigModule.forRoot({ isGlobal: true }),
+    AuthModule,
+    UsersModule,
+    TeamsModule,
+    TournamentsModule,
+    JoinCodesModule,
+    RoundsModule,
+    TableAssetsModule,
+  ],
   controllers: [AppController],
   providers: [AppService],
 })

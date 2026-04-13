@@ -11,16 +11,24 @@ import type {
   ActivateRoundResponseDto,
   CreateRoundCommand,
   Database,
+  DeletedSuccessDto,
   LockRoundResponseDto,
+  OpponentPlayerDto,
   PaginatedListDto,
   PatchRoundCommand,
+  PatchOpponentCommand,
+  PutRoundTablesCommand,
+  PutRoundTablesResponseDto,
   ReorderRoundResponseDto,
+  RoundTableDto,
   RoundDto,
   RoundSummaryDto,
 } from '@parinator/schema';
 import { SupabaseService } from '../supabase/supabase.service';
 
 type RoundRow = Database['public']['Tables']['rounds']['Row'];
+type OpponentPlayerRow = Database['public']['Tables']['opponent_players']['Row'];
+type RoundTableRow = Database['public']['Tables']['round_tables']['Row'];
 type TournamentRow = Database['public']['Tables']['tournaments']['Row'];
 
 type RoundsListParams = {
@@ -43,6 +51,57 @@ type PatchRoundParams = {
   actorUserId: string;
   roundId: string;
   command: PatchRoundCommand;
+};
+
+type OpponentsListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'name' | '-name' | 'createdAt' | '-createdAt';
+  name?: string;
+};
+
+type CreateOpponentParams = {
+  actorUserId: string;
+  roundId: string;
+  command: CreateRoundOpponentCommand;
+};
+
+type PatchOpponentParams = {
+  actorUserId: string;
+  roundId: string;
+  opponentId: string;
+  command: PatchOpponentCommand;
+};
+
+type DeleteOpponentParams = {
+  actorUserId: string;
+  roundId: string;
+  opponentId: string;
+};
+
+type TablesListParams = {
+  actorUserId: string;
+  roundId: string;
+  page: number;
+  pageSize: number;
+  sort: 'tableNo' | '-tableNo' | 'createdAt' | '-createdAt';
+  tableNo?: number;
+};
+
+type ReplaceTablesParams = {
+  actorUserId: string;
+  roundId: string;
+  command: PutRoundTablesCommand;
+};
+
+type CreateRoundOpponentCommand = {
+  name: string;
+  faction: string | null;
+  listText: string | null;
+  externalRef: string | null;
+  listOpenedRequired: boolean;
 };
 
 @Injectable()
@@ -262,6 +321,210 @@ export class RoundsService {
     };
   }
 
+  /** List opponents for a round with pagination and optional name filter. */
+  async listOpponents(params: OpponentsListParams): Promise<PaginatedListDto<OpponentPlayerDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveOpponentsSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .select('id, name, faction, list_text, external_ref, list_opened_required, created_at', { count: 'exact' })
+      .eq('round_id', round.id);
+    if (params.name) {
+      query = query.ilike('name', `%${params.name}%`);
+    }
+    const { data, error, count } = await query
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list opponents', error);
+      throw this.createInternalErrorException();
+    }
+    const total = count ?? 0;
+    return {
+      data: data.map((row) => this.mapOpponentRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, total),
+    };
+  }
+
+  /** Create opponent player in round (captain only). */
+  async createOpponent(params: CreateOpponentParams): Promise<OpponentPlayerDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .insert({
+        round_id: round.id,
+        name: params.command.name,
+        faction: params.command.faction,
+        list_text: params.command.listText,
+        external_ref: params.command.externalRef,
+        list_opened_required: params.command.listOpenedRequired,
+      })
+      .select('id, name, faction, list_text, external_ref, list_opened_required')
+      .single();
+    if (error || !data) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException({
+          error: { code: 'DUPLICATE_OPPONENT_NAME', message: 'Opponent name already exists in this round.', details: {} },
+        });
+      }
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Opponent data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to create opponent', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapOpponentRow(data);
+  }
+
+  /** Update opponent metadata (captain only). */
+  async patchOpponent(params: PatchOpponentParams): Promise<OpponentPlayerDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    await this.fetchOpponentOrFail(params.roundId, params.opponentId);
+    const updatePayload: Database['public']['Tables']['opponent_players']['Update'] = {};
+    if (params.command.faction !== undefined) {
+      updatePayload.faction = params.command.faction;
+    }
+    if (params.command.listText !== undefined) {
+      updatePayload.list_text = params.command.listText;
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .update(updatePayload)
+      .eq('id', params.opponentId)
+      .eq('round_id', params.roundId)
+      .select('id, name, faction, list_text, external_ref, list_opened_required')
+      .single();
+    if (error || !data) {
+      if (this.isUniqueViolation(error)) {
+        throw new ConflictException({
+          error: { code: 'DUPLICATE_OPPONENT_NAME', message: 'Opponent name already exists in this round.', details: {} },
+        });
+      }
+      if (this.isCheckViolation(error) || this.isForeignKeyViolation(error)) {
+        throw this.createValidationException('Opponent data does not satisfy constraints.');
+      }
+      this.logger.error('Failed to patch opponent', error);
+      throw this.createInternalErrorException();
+    }
+    return this.mapOpponentRow(data);
+  }
+
+  /** Delete opponent from round (captain only). */
+  async deleteOpponent(params: DeleteOpponentParams): Promise<DeletedSuccessDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    await this.fetchOpponentOrFail(params.roundId, params.opponentId);
+    const { error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .delete()
+      .eq('id', params.opponentId)
+      .eq('round_id', params.roundId);
+    if (error) {
+      this.logger.error('Failed to delete opponent', error);
+      throw this.createInternalErrorException();
+    }
+    return { deleted: true };
+  }
+
+  /** List round tables with pagination and optional table number filter. */
+  async listTables(params: TablesListParams): Promise<PaginatedListDto<RoundTableDto>> {
+    const round = await this.fetchRoundWithAccess(params.actorUserId, params.roundId);
+    const offset = (params.page - 1) * params.pageSize;
+    const { column, ascending } = this.resolveTablesSort(params.sort);
+    let query = this.supabaseService
+      .getClient()
+      .from('round_tables')
+      .select('id, table_no, table_name, image_asset_id, created_at', { count: 'exact' })
+      .eq('round_id', round.id);
+    if (params.tableNo !== undefined) {
+      query = query.eq('table_no', params.tableNo);
+    }
+    const { data, error, count } = await query
+      .order(column, { ascending })
+      .range(offset, offset + params.pageSize - 1);
+    if (error || !data) {
+      this.logger.error('Failed to list tables', error);
+      throw this.createInternalErrorException();
+    }
+    const total = count ?? 0;
+    return {
+      data: data.map((row) => this.mapRoundTableRow(row)),
+      pagination: this.createPagination(params.page, params.pageSize, total),
+    };
+  }
+
+  /** Replace full set of round tables (captain only). */
+  async replaceTables(params: ReplaceTablesParams): Promise<PutRoundTablesResponseDto> {
+    const round = await this.fetchRoundWithCaptainAccess(params.actorUserId, params.roundId);
+    this.ensureRoundEditable(round);
+    this.ensureNoDuplicateTableNumbers(params.command.tables);
+    const inputTableNos = params.command.tables.map((table) => table.tableNo);
+    const upsertPayload = params.command.tables.map((table) => ({
+      round_id: round.id,
+      table_no: table.tableNo,
+      table_name: table.tableName ?? null,
+      image_asset_id: table.imageAssetId ?? null,
+    }));
+    if (upsertPayload.length > 0) {
+      const { error: upsertError } = await this.supabaseService
+        .getClient()
+        .from('round_tables')
+        .upsert(upsertPayload, { onConflict: 'round_id,table_no' });
+      if (upsertError) {
+        if (this.isUniqueViolation(upsertError)) {
+          throw new ConflictException({
+            error: { code: 'DUPLICATE_TABLE_NO', message: 'Table number already exists in this round.', details: {} },
+          });
+        }
+        if (this.isCheckViolation(upsertError) || this.isForeignKeyViolation(upsertError)) {
+          throw this.createValidationException('Round table data does not satisfy constraints.');
+        }
+        this.logger.error('Failed to upsert round tables', upsertError);
+        throw this.createInternalErrorException();
+      }
+    }
+    if (inputTableNos.length === 0) {
+      const { error: deleteAllError } = await this.supabaseService
+        .getClient()
+        .from('round_tables')
+        .delete()
+        .eq('round_id', round.id);
+      if (deleteAllError) {
+        this.logger.error('Failed to clear round tables', deleteAllError);
+        throw this.createInternalErrorException();
+      }
+    } else {
+      const { error: cleanupError } = await this.supabaseService
+        .getClient()
+        .from('round_tables')
+        .delete()
+        .eq('round_id', round.id)
+        .not('table_no', 'in', `(${inputTableNos.join(',')})`);
+      if (cleanupError) {
+        this.logger.error('Failed to cleanup round tables', cleanupError);
+        throw this.createInternalErrorException();
+      }
+    }
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('round_tables')
+      .select('id, table_no, table_name, image_asset_id')
+      .eq('round_id', round.id)
+      .order('table_no', { ascending: true });
+    if (error || !data) {
+      this.logger.error('Failed to read replaced round tables', error);
+      throw this.createInternalErrorException();
+    }
+    return { data: data.map((row) => this.mapRoundTableRow(row)) };
+  }
+
   // -------------------------------------------------------------------------
   // Access control helpers
   // -------------------------------------------------------------------------
@@ -325,6 +588,26 @@ export class RoundsService {
     if (!data) {
       throw new NotFoundException({
         error: { code: 'ROUND_NOT_FOUND', message: 'Round not found.', details: {} },
+      });
+    }
+    return data;
+  }
+
+  private async fetchOpponentOrFail(roundId: string, opponentId: string): Promise<OpponentPlayerRow> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('opponent_players')
+      .select('*')
+      .eq('id', opponentId)
+      .eq('round_id', roundId)
+      .maybeSingle();
+    if (error) {
+      this.logger.error('Failed to fetch opponent', error);
+      throw this.createInternalErrorException();
+    }
+    if (!data) {
+      throw new NotFoundException({
+        error: { code: 'OPPONENT_NOT_FOUND', message: 'Opponent not found.', details: {} },
       });
     }
     return data;
@@ -401,6 +684,16 @@ export class RoundsService {
     }
   }
 
+  private ensureNoDuplicateTableNumbers(tables: PutRoundTablesCommand['tables']): void {
+    const tableNumbers = tables.map((table) => table.tableNo);
+    const uniqueTableNumbers = new Set(tableNumbers);
+    if (uniqueTableNumbers.size !== tableNumbers.length) {
+      throw new ConflictException({
+        error: { code: 'DUPLICATE_TABLE_NO', message: 'Table number must be unique in request payload.', details: {} },
+      });
+    }
+  }
+
   // -------------------------------------------------------------------------
   // Audit
   // -------------------------------------------------------------------------
@@ -441,6 +734,26 @@ export class RoundsService {
       '-createdAt': { column: 'created_at', ascending: false },
     };
     return mapping[sort] ?? { column: 'created_at', ascending: false };
+  }
+
+  private resolveOpponentsSort(sort: OpponentsListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      name: { column: 'name', ascending: true },
+      '-name': { column: 'name', ascending: false },
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'name', ascending: true };
+  }
+
+  private resolveTablesSort(sort: TablesListParams['sort']): { column: string; ascending: boolean } {
+    const mapping: Record<string, { column: string; ascending: boolean }> = {
+      tableNo: { column: 'table_no', ascending: true },
+      '-tableNo': { column: 'table_no', ascending: false },
+      createdAt: { column: 'created_at', ascending: true },
+      '-createdAt': { column: 'created_at', ascending: false },
+    };
+    return mapping[sort] ?? { column: 'table_no', ascending: true };
   }
 
   // -------------------------------------------------------------------------
@@ -497,6 +810,30 @@ export class RoundsService {
     };
   }
 
+  private mapOpponentRow(
+    row: Pick<OpponentPlayerRow, 'id' | 'name' | 'faction' | 'list_text' | 'external_ref' | 'list_opened_required'>,
+  ): OpponentPlayerDto {
+    return {
+      id: row.id,
+      name: row.name,
+      faction: row.faction,
+      listText: row.list_text,
+      externalRef: row.external_ref,
+      listOpenedRequired: row.list_opened_required,
+    };
+  }
+
+  private mapRoundTableRow(
+    row: Pick<RoundTableRow, 'id' | 'table_no' | 'table_name' | 'image_asset_id'>,
+  ): RoundTableDto {
+    return {
+      id: row.id,
+      tableNo: row.table_no,
+      tableName: row.table_name,
+      imageAssetId: row.image_asset_id,
+    };
+  }
+
   // -------------------------------------------------------------------------
   // Pagination & error helpers
   // -------------------------------------------------------------------------
@@ -521,6 +858,10 @@ export class RoundsService {
 
   private isCheckViolation(error: { code?: string } | null): boolean {
     return error?.code === '23514' || error?.code === '22P02';
+  }
+
+  private isForeignKeyViolation(error: { code?: string } | null): boolean {
+    return error?.code === '23503';
   }
 
   private createForbiddenException(): ForbiddenException {

@@ -8,6 +8,8 @@ const mockUserId = '550e8400-e29b-41d4-a716-446655440000';
 const mockTournamentId = '880e8400-e29b-41d4-a716-446655440000';
 const mockRoundId = '990e8400-e29b-41d4-a716-446655440000';
 const mockMembershipId = '770e8400-e29b-41d4-a716-446655440000';
+const mockOpponentId = '890e8400-e29b-41d4-a716-446655440000';
+const mockTableId = '980e8400-e29b-41d4-a716-446655440000';
 
 const mockRoundDto = {
   id: mockRoundId,
@@ -38,6 +40,51 @@ describe('RoundsController', () => {
       status: 'locked',
       lockedAt: '2025-02-01T00:00:00.000Z',
       lockedByMembershipId: mockMembershipId,
+    }),
+    listOpponents: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockOpponentId,
+        name: 'Opponent A',
+        faction: 'Faction',
+        listText: 'Roster',
+        externalRef: 'source-id',
+        listOpenedRequired: true,
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    createOpponent: jest.fn().mockResolvedValue({
+      id: mockOpponentId,
+      name: 'Opponent A',
+      faction: 'Faction',
+      listText: 'Roster',
+      externalRef: 'source-id',
+      listOpenedRequired: true,
+    }),
+    patchOpponent: jest.fn().mockResolvedValue({
+      id: mockOpponentId,
+      name: 'Opponent A',
+      faction: 'Updated',
+      listText: 'Updated roster',
+      externalRef: 'source-id',
+      listOpenedRequired: true,
+    }),
+    deleteOpponent: jest.fn().mockResolvedValue({ deleted: true }),
+    listTables: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockTableId,
+        tableNo: 1,
+        tableName: 'Top table',
+        imageAssetId: null,
+      }],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    replaceTables: jest.fn().mockResolvedValue({
+      data: [{
+        id: mockTableId,
+        tableNo: 1,
+        tableName: 'Top table',
+        imageAssetId: null,
+      }],
     }),
   };
 
@@ -132,6 +179,102 @@ describe('RoundsController', () => {
       expect(actualResult.status).toBe('locked');
       expect(actualResult.lockedAt).toBeDefined();
       expect(mockRoundsService.lockRound).toHaveBeenCalledWith(mockUserId, mockRoundId);
+    });
+  });
+
+  describe('listOpponents', () => {
+    it('should return paginated opponent list', async () => {
+      const actualResult = await controller.listOpponents(mockUserId, mockRoundId, { page: '1', pageSize: '20' });
+      expect(actualResult.data).toHaveLength(1);
+      expect(mockRoundsService.listOpponents).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: 'name',
+        name: undefined,
+      });
+    });
+  });
+
+  describe('createOpponent', () => {
+    it('should map payload and call service', async () => {
+      await controller.createOpponent(mockUserId, mockRoundId, {
+        name: 'Opponent A',
+        faction: 'Faction',
+        listText: 'Roster',
+        externalRef: 'source-id',
+        listOpenedRequired: true,
+      });
+      expect(mockRoundsService.createOpponent).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: {
+          name: 'Opponent A',
+          faction: 'Faction',
+          listText: 'Roster',
+          externalRef: 'source-id',
+          listOpenedRequired: true,
+        },
+      });
+    });
+
+    it('should reject invalid payload', async () => {
+      await expect(
+        controller.createOpponent(mockUserId, mockRoundId, { name: '' }),
+      ).rejects.toThrow(BadRequestException);
+    });
+  });
+
+  describe('patchOpponent', () => {
+    it('should call service with validated ids and payload', async () => {
+      await controller.patchOpponent(mockUserId, mockRoundId, mockOpponentId, { faction: 'Updated' });
+      expect(mockRoundsService.patchOpponent).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        opponentId: mockOpponentId,
+        command: { faction: 'Updated', listText: undefined },
+      });
+    });
+  });
+
+  describe('deleteOpponent', () => {
+    it('should call service and return deleted flag', async () => {
+      const actualResult = await controller.deleteOpponent(mockUserId, mockRoundId, mockOpponentId);
+      expect(actualResult.deleted).toBe(true);
+      expect(mockRoundsService.deleteOpponent).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        opponentId: mockOpponentId,
+      });
+    });
+  });
+
+  describe('listTables', () => {
+    it('should parse table filter and call service', async () => {
+      const actualResult = await controller.listTables(mockUserId, mockRoundId, { 'filter[tableNo]': '1' });
+      expect(actualResult.data[0].tableNo).toBe(1);
+      expect(mockRoundsService.listTables).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        page: 1,
+        pageSize: 20,
+        sort: 'tableNo',
+        tableNo: 1,
+      });
+    });
+  });
+
+  describe('replaceTables', () => {
+    it('should call service with normalized table payload', async () => {
+      await controller.replaceTables(mockUserId, mockRoundId, {
+        tables: [{ tableNo: 1, tableName: 'Top table', imageAssetId: null }],
+      });
+      expect(mockRoundsService.replaceTables).toHaveBeenCalledWith({
+        actorUserId: mockUserId,
+        roundId: mockRoundId,
+        command: { tables: [{ tableNo: 1, tableName: 'Top table', imageAssetId: null }] },
+      });
     });
   });
 });
