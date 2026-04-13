@@ -20,7 +20,7 @@ function createBuilder(options: {
   singleResponse?: BuilderResponse;
   maybeSingleResponse?: BuilderResponse;
 } = {}) {
-  const builder: Record<string, jest.Mock | unknown> = {
+  const builder: Record<string, unknown> = {
     data: options.defaultResponse?.data ?? null,
     error: options.defaultResponse?.error ?? null,
     count: options.defaultResponse?.count ?? null,
@@ -183,12 +183,6 @@ describe('JoinCodesService', () => {
       });
       const captainBuilder = createBuilder({
         singleResponse: { data: { id: mockMembershipId }, error: null, count: null },
-      });
-      const deactivateBuilder = createBuilder({
-        defaultResponse: { data: null, error: null, count: null },
-      });
-      const insertBuilder = createBuilder({
-        singleResponse: { data: mockJoinCodeRow, error: null, count: null },
       });
       mockFrom.mockImplementation((table: string) => {
         if (table === 'tournaments') return tournamentBuilder;

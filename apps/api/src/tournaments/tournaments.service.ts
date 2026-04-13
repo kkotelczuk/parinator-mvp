@@ -272,7 +272,7 @@ export class TournamentsService {
       tournament_id: params.tournamentId,
       membership_id: member.membershipId,
       slot_no: member.slotNo,
-      role: member.role as 'captain' | 'player',
+      role: member.role,
       is_playing: member.isPlaying,
     }));
     const { data, error } = await this.supabaseService

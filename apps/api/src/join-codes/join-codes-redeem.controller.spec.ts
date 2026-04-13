@@ -18,7 +18,9 @@ const mockRedeemResponse = {
 
 describe('JoinCodesRedeemController', () => {
   let controller: JoinCodesRedeemController;
-  let joinCodesService: JoinCodesService;
+  const mockJoinCodesService = {
+    redeemJoinCode: jest.fn().mockResolvedValue(mockRedeemResponse),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,9 +28,7 @@ describe('JoinCodesRedeemController', () => {
       providers: [
         {
           provide: JoinCodesService,
-          useValue: {
-            redeemJoinCode: jest.fn().mockResolvedValue(mockRedeemResponse),
-          },
+          useValue: mockJoinCodesService,
         },
         {
           provide: SupabaseService,
@@ -37,14 +37,14 @@ describe('JoinCodesRedeemController', () => {
       ],
     }).compile();
     controller = module.get<JoinCodesRedeemController>(JoinCodesRedeemController);
-    joinCodesService = module.get<JoinCodesService>(JoinCodesService);
+    jest.clearAllMocks();
   });
 
   describe('redeemJoinCode', () => {
     it('should call service with validated code', async () => {
       const actualResult = await controller.redeemJoinCode(mockUserId, { code: '123456' });
       expect(actualResult).toEqual(mockRedeemResponse);
-      expect(joinCodesService.redeemJoinCode).toHaveBeenCalledWith({
+      expect(mockJoinCodesService.redeemJoinCode).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         code: '123456',
       });

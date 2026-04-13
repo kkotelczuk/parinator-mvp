@@ -147,3 +147,69 @@ export const redeemJoinCodeSchema = z.object({
     .string()
     .regex(/^[0-9]{6}$/, "Code must be exactly 6 digits"),
 });
+
+// ---------------------------------------------------------------------------
+// 2.6 Rounds and round configuration
+// ---------------------------------------------------------------------------
+
+const roundStatusEnum = z.enum(["editable", "locked"]);
+
+export const roundsListQuerySchema = paginationQuerySchema.extend({
+  sort: z
+    .enum(["roundNumber", "-roundNumber", "sortOrder", "-sortOrder", "createdAt", "-createdAt"])
+    .default("-createdAt"),
+  status: roundStatusEnum.optional(),
+  isActive: queryBooleanSchema.optional(),
+});
+
+export const createRoundSchema = z.object({
+  roundNumber: z.number().int().min(1, "roundNumber must be at least 1").max(200, "roundNumber must be at most 200"),
+  displayName: z
+    .string()
+    .trim()
+    .min(1, "displayName must not be empty")
+    .max(200, "displayName must be at most 200 characters"),
+  mission: z.string().trim().min(1, "mission must not be empty"),
+  deployment: z.string().trim().min(1, "deployment must not be empty"),
+  opponentTeamName: z.string().trim().nullable().optional(),
+  isActive: z.boolean().default(false),
+  sortOrder: z.number().int().min(1, "sortOrder must be at least 1").max(200, "sortOrder must be at most 200"),
+});
+
+export type CreateRoundInput = z.infer<typeof createRoundSchema>;
+
+export const patchRoundSchema = z
+  .object({
+    displayName: z
+      .string()
+      .trim()
+      .min(1, "displayName must not be empty")
+      .max(200, "displayName must be at most 200 characters")
+      .optional(),
+    mission: z.string().trim().min(1, "mission must not be empty").optional(),
+    deployment: z.string().trim().min(1, "deployment must not be empty").optional(),
+    opponentTeamName: z.string().trim().nullable().optional(),
+    isActive: z.boolean().optional(),
+    sortOrder: z
+      .number()
+      .int()
+      .min(1, "sortOrder must be at least 1")
+      .max(200, "sortOrder must be at most 200")
+      .optional(),
+  })
+  .refine(
+    (data): boolean =>
+      data.displayName !== undefined ||
+      data.mission !== undefined ||
+      data.deployment !== undefined ||
+      data.opponentTeamName !== undefined ||
+      data.isActive !== undefined ||
+      data.sortOrder !== undefined,
+    { message: "At least one field must be provided." },
+  );
+
+export type PatchRoundInput = z.infer<typeof patchRoundSchema>;
+
+export const reorderRoundSchema = z.object({
+  sortOrder: z.number().int().min(1, "sortOrder must be at least 1").max(200, "sortOrder must be at most 200"),
+});

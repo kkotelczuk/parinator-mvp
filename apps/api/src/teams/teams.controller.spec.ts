@@ -24,7 +24,21 @@ const mockMembership = {
 
 describe('TeamsController', () => {
   let controller: TeamsController;
-  let teamsService: TeamsService;
+  const mockTeamsService = {
+    listTeams: jest.fn().mockResolvedValue(mockTeamsListResponse),
+    createTeam: jest.fn().mockResolvedValue({
+      id: mockTeamId,
+      name: 'Team Alpha',
+      createdByUserId: mockUserId,
+      createdAt: '2025-01-01T00:00:00.000Z',
+    }),
+    listMemberships: jest.fn().mockResolvedValue({
+      data: [mockMembership],
+      pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
+    }),
+    createMembership: jest.fn().mockResolvedValue(mockMembership),
+    patchMembership: jest.fn().mockResolvedValue({ ...mockMembership, role: 'captain' }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -32,21 +46,7 @@ describe('TeamsController', () => {
       providers: [
         {
           provide: TeamsService,
-          useValue: {
-            listTeams: jest.fn().mockResolvedValue(mockTeamsListResponse),
-            createTeam: jest.fn().mockResolvedValue({
-              id: mockTeamId,
-              name: 'Team Alpha',
-              createdByUserId: mockUserId,
-              createdAt: '2025-01-01T00:00:00.000Z',
-            }),
-            listMemberships: jest.fn().mockResolvedValue({
-              data: [mockMembership],
-              pagination: { page: 1, pageSize: 20, total: 1, totalPages: 1 },
-            }),
-            createMembership: jest.fn().mockResolvedValue(mockMembership),
-            patchMembership: jest.fn().mockResolvedValue({ ...mockMembership, role: 'captain' }),
-          },
+          useValue: mockTeamsService,
         },
         {
           provide: SupabaseService,
@@ -55,14 +55,14 @@ describe('TeamsController', () => {
       ],
     }).compile();
     controller = module.get<TeamsController>(TeamsController);
-    teamsService = module.get<TeamsService>(TeamsService);
+    jest.clearAllMocks();
   });
 
   describe('listTeams', () => {
     it('should return paginated teams list', async () => {
       const actualResult = await controller.listTeams(mockUserId, {});
       expect(actualResult).toEqual(mockTeamsListResponse);
-      expect(teamsService.listTeams).toHaveBeenCalledWith({
+      expect(mockTeamsService.listTeams).toHaveBeenCalledWith({
         userId: mockUserId,
         page: 1,
         pageSize: 20,
@@ -82,7 +82,7 @@ describe('TeamsController', () => {
     it('should call service with validated body', async () => {
       const actualResult = await controller.createTeam(mockUserId, { name: ' Team Alpha ' });
       expect(actualResult.name).toBe('Team Alpha');
-      expect(teamsService.createTeam).toHaveBeenCalledWith(mockUserId, {
+      expect(mockTeamsService.createTeam).toHaveBeenCalledWith(mockUserId, {
         name: 'Team Alpha',
       });
     });
@@ -95,7 +95,7 @@ describe('TeamsController', () => {
         'filter[active]': 'true',
       });
       expect(actualResult.data).toHaveLength(1);
-      expect(teamsService.listMemberships).toHaveBeenCalledWith({
+      expect(mockTeamsService.listMemberships).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         teamId: mockTeamId,
         page: 1,
@@ -120,7 +120,7 @@ describe('TeamsController', () => {
         role: 'player',
         isPlaying: true,
       });
-      expect(teamsService.createMembership).toHaveBeenCalledWith({
+      expect(mockTeamsService.createMembership).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         teamId: mockTeamId,
         command: { userId: mockUserId, role: 'player', isPlaying: true },
@@ -143,7 +143,7 @@ describe('TeamsController', () => {
       await controller.patchMembership(mockUserId, mockTeamId, mockMembershipId, {
         leftAt: null,
       });
-      expect(teamsService.patchMembership).toHaveBeenCalledWith({
+      expect(mockTeamsService.patchMembership).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         teamId: mockTeamId,
         membershipId: mockMembershipId,

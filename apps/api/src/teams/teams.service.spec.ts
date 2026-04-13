@@ -21,7 +21,7 @@ function createBuilder(options: {
   maybeSingleResponse?: BuilderResponse;
   limitResponse?: BuilderResponse;
 } = {}) {
-  const builder: Record<string, jest.Mock | unknown> = {
+  const builder: Record<string, unknown> = {
     data: options.defaultResponse?.data ?? null,
     error: options.defaultResponse?.error ?? null,
     count: options.defaultResponse?.count ?? null,

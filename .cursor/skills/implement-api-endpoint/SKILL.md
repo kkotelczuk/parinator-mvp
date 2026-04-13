@@ -136,6 +136,9 @@ Wykonaj następujące kroki:
 4. **Testowanie**
    - Rozważ przypadki brzegowe z planu; minimalnie happy path + reprezentatywny błąd (np. 400 lub 401).
    - Dodaj przypadek z pustym/niepoprawnym body i potwierdź, że endpoint zwraca kontraktowy błąd walidacji zamiast wyjątku runtime.
+   - Tworząc testy kontrolerów, asercje `toHaveBeenCalledWith` rób na dedykowanych obiektach mock (np. `mockRoundsService.patchRound`), nie na referencjach metod z klas serwisów pobranych z kontenera.
+   - W helperach builderów do mockowania zapytań używaj typów opartych o `unknown` (np. `Record<string, unknown>`), unikaj unii typu `jest.Mock | unknown`.
+   - Po napisaniu testów usuń nieużywane zmienne pomocnicze (buildery/liczniki), aby przechodzić `@typescript-eslint/no-unused-vars`.
 
 5. **Dokumentacja w kodzie**
    - JSDoc dla publicznych metod serwisu i kontrolera tam, gdzie logika jest nietrywialna (zgodnie z regułami NestJS w repo).

@@ -91,6 +91,10 @@ Generate code, corrections, and refactorings that comply with the basic principl
     - Except for third-party dependencies that are not expensive to execute.
 - Write acceptance tests for each module.
   - Follow the Given-When-Then convention.
+- Keep Jest specs compatible with strict ESLint rules:
+  - Avoid `@typescript-eslint/unbound-method` in controller specs by asserting calls on dedicated mock objects (for example `mockUsersService.findById`) instead of class-typed service method references.
+  - When building dynamic mock query builders, do not use unions like `jest.Mock | unknown`; use `unknown`-based structures (for example `Record<string, unknown>`) and assign mock functions per property.
+  - Remove or avoid unused local variables in specs (`no-unused-vars`), especially temporary builders or counters that are not asserted.
 
 
   ## Specific to NestJS

@@ -31,7 +31,27 @@ const mockTournamentsList = {
 
 describe('TournamentsController', () => {
   let controller: TournamentsController;
-  let tournamentsService: TournamentsService;
+  const mockTournamentsService = {
+    listTournaments: jest.fn().mockResolvedValue(mockTournamentsList),
+    createTournament: jest.fn().mockResolvedValue(mockTournamentDto),
+    getTournamentDetail: jest.fn().mockResolvedValue({
+      ...mockTournamentDto,
+      roundCount: 3,
+      activeRoundId: null,
+    }),
+    patchTournament: jest.fn().mockResolvedValue({ ...mockTournamentDto, name: 'Updated' }),
+    lockSetup: jest.fn().mockResolvedValue({
+      id: mockTournamentId,
+      setupLockedAt: '2025-02-01T00:00:00.000Z',
+    }),
+    closeTournament: jest.fn().mockResolvedValue({
+      id: mockTournamentId,
+      status: 'closed',
+      closedAt: '2025-03-01T00:00:00.000Z',
+    }),
+    listRoster: jest.fn().mockResolvedValue({ data: [] }),
+    replaceRoster: jest.fn().mockResolvedValue({ data: [] }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -39,27 +59,7 @@ describe('TournamentsController', () => {
       providers: [
         {
           provide: TournamentsService,
-          useValue: {
-            listTournaments: jest.fn().mockResolvedValue(mockTournamentsList),
-            createTournament: jest.fn().mockResolvedValue(mockTournamentDto),
-            getTournamentDetail: jest.fn().mockResolvedValue({
-              ...mockTournamentDto,
-              roundCount: 3,
-              activeRoundId: null,
-            }),
-            patchTournament: jest.fn().mockResolvedValue({ ...mockTournamentDto, name: 'Updated' }),
-            lockSetup: jest.fn().mockResolvedValue({
-              id: mockTournamentId,
-              setupLockedAt: '2025-02-01T00:00:00.000Z',
-            }),
-            closeTournament: jest.fn().mockResolvedValue({
-              id: mockTournamentId,
-              status: 'closed',
-              closedAt: '2025-03-01T00:00:00.000Z',
-            }),
-            listRoster: jest.fn().mockResolvedValue({ data: [] }),
-            replaceRoster: jest.fn().mockResolvedValue({ data: [] }),
-          },
+          useValue: mockTournamentsService,
         },
         {
           provide: SupabaseService,
@@ -68,14 +68,14 @@ describe('TournamentsController', () => {
       ],
     }).compile();
     controller = module.get<TournamentsController>(TournamentsController);
-    tournamentsService = module.get<TournamentsService>(TournamentsService);
+    jest.clearAllMocks();
   });
 
   describe('listTournaments', () => {
     it('should return paginated tournaments list', async () => {
       const actualResult = await controller.listTournaments(mockUserId, {});
       expect(actualResult).toEqual(mockTournamentsList);
-      expect(tournamentsService.listTournaments).toHaveBeenCalledWith({
+      expect(mockTournamentsService.listTournaments).toHaveBeenCalledWith({
         userId: mockUserId,
         page: 1,
         pageSize: 20,
@@ -100,7 +100,7 @@ describe('TournamentsController', () => {
         teamSize: 5,
       });
       expect(actualResult.name).toBe('WTC Warmup');
-      expect(tournamentsService.createTournament).toHaveBeenCalledWith({
+      expect(mockTournamentsService.createTournament).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         command: {
           name: 'WTC Warmup',
@@ -133,7 +133,7 @@ describe('TournamentsController', () => {
     it('should return tournament detail', async () => {
       const actualResult = await controller.getTournament(mockUserId, mockTournamentId);
       expect(actualResult.roundCount).toBe(3);
-      expect(tournamentsService.getTournamentDetail).toHaveBeenCalledWith(mockUserId, mockTournamentId);
+      expect(mockTournamentsService.getTournamentDetail).toHaveBeenCalledWith(mockUserId, mockTournamentId);
     });
 
     it('should reject invalid tournamentId UUID', async () => {
@@ -146,7 +146,7 @@ describe('TournamentsController', () => {
   describe('patchTournament', () => {
     it('should call service with partial update', async () => {
       await controller.patchTournament(mockUserId, mockTournamentId, { name: 'Updated' });
-      expect(tournamentsService.patchTournament).toHaveBeenCalledWith({
+      expect(mockTournamentsService.patchTournament).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         tournamentId: mockTournamentId,
         command: { name: 'Updated', status: undefined },
@@ -164,7 +164,7 @@ describe('TournamentsController', () => {
     it('should call service and return lock response', async () => {
       const actualResult = await controller.lockSetup(mockUserId, mockTournamentId);
       expect(actualResult.setupLockedAt).toBeDefined();
-      expect(tournamentsService.lockSetup).toHaveBeenCalledWith(mockUserId, mockTournamentId);
+      expect(mockTournamentsService.lockSetup).toHaveBeenCalledWith(mockUserId, mockTournamentId);
     });
   });
 
@@ -172,7 +172,7 @@ describe('TournamentsController', () => {
     it('should call service with optional closedAt', async () => {
       const actualResult = await controller.closeTournament(mockUserId, mockTournamentId, {});
       expect(actualResult.status).toBe('closed');
-      expect(tournamentsService.closeTournament).toHaveBeenCalledWith(
+      expect(mockTournamentsService.closeTournament).toHaveBeenCalledWith(
         mockUserId,
         mockTournamentId,
         { closedAt: undefined },
@@ -187,7 +187,7 @@ describe('TournamentsController', () => {
           { membershipId: mockMembershipId, slotNo: 1, role: 'captain', isPlaying: false },
         ],
       });
-      expect(tournamentsService.replaceRoster).toHaveBeenCalledWith({
+      expect(mockTournamentsService.replaceRoster).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         tournamentId: mockTournamentId,
         command: {

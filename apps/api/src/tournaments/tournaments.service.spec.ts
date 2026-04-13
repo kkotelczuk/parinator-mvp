@@ -22,7 +22,7 @@ function createBuilder(options: {
   limitResponse?: BuilderResponse;
   deleteResponse?: BuilderResponse;
 } = {}) {
-  const builder: Record<string, jest.Mock | unknown> = {
+  const builder: Record<string, unknown> = {
     data: options.defaultResponse?.data ?? null,
     error: options.defaultResponse?.error ?? null,
     count: options.defaultResponse?.count ?? null,
@@ -151,13 +151,9 @@ describe('TournamentsService', () => {
       const insertBuilder = createBuilder({
         singleResponse: { data: mockTournamentRow, error: null, count: null },
       });
-      let callCount = 0;
       mockFrom.mockImplementation((table: string) => {
         if (table === 'team_memberships') return captainBuilder;
-        if (table === 'tournaments') {
-          callCount++;
-          return insertBuilder;
-        }
+        if (table === 'tournaments') return insertBuilder;
         return createBuilder();
       });
       const actualResult = await service.createTournament({
@@ -201,13 +197,9 @@ describe('TournamentsService', () => {
           count: 2,
         },
       });
-      let memberCallCount = 0;
       mockFrom.mockImplementation((table: string) => {
         if (table === 'tournaments') return tournamentBuilder;
-        if (table === 'team_memberships') {
-          memberCallCount++;
-          return memberBuilder;
-        }
+        if (table === 'team_memberships') return memberBuilder;
         if (table === 'rounds') return roundsBuilder;
         return createBuilder();
       });

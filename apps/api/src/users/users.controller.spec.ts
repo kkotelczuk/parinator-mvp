@@ -15,7 +15,13 @@ const mockUserDto = {
 
 describe('UsersController', () => {
   let controller: UsersController;
-  let usersService: UsersService;
+  const mockUsersService = {
+    findById: jest.fn().mockResolvedValue(mockUserDto),
+    updateDisplayName: jest.fn().mockResolvedValue({
+      ...mockUserDto,
+      displayName: 'Updated Name',
+    }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -23,13 +29,7 @@ describe('UsersController', () => {
       providers: [
         {
           provide: UsersService,
-          useValue: {
-            findById: jest.fn().mockResolvedValue(mockUserDto),
-            updateDisplayName: jest.fn().mockResolvedValue({
-              ...mockUserDto,
-              displayName: 'Updated Name',
-            }),
-          },
+          useValue: mockUsersService,
         },
         {
           provide: SupabaseService,
@@ -38,14 +38,14 @@ describe('UsersController', () => {
       ],
     }).compile();
     controller = module.get<UsersController>(UsersController);
-    usersService = module.get<UsersService>(UsersService);
+    jest.clearAllMocks();
   });
 
   describe('getMe', () => {
     it('should return the user profile', async () => {
       const actualResult = await controller.getMe(mockUserDto.id);
       expect(actualResult).toEqual(mockUserDto);
-      expect(usersService.findById).toHaveBeenCalledWith(mockUserDto.id);
+      expect(mockUsersService.findById).toHaveBeenCalledWith(mockUserDto.id);
     });
   });
 
@@ -54,7 +54,7 @@ describe('UsersController', () => {
       const inputBody = { displayName: 'Updated Name' };
       const actualResult = await controller.updateMe(mockUserDto.id, inputBody);
       expect(actualResult.displayName).toBe('Updated Name');
-      expect(usersService.updateDisplayName).toHaveBeenCalledWith(
+      expect(mockUsersService.updateDisplayName).toHaveBeenCalledWith(
         mockUserDto.id,
         'Updated Name',
       );
@@ -63,7 +63,7 @@ describe('UsersController', () => {
     it('should trim whitespace from displayName', async () => {
       const inputBody = { displayName: '  Trimmed Name  ' };
       await controller.updateMe(mockUserDto.id, inputBody);
-      expect(usersService.updateDisplayName).toHaveBeenCalledWith(
+      expect(mockUsersService.updateDisplayName).toHaveBeenCalledWith(
         mockUserDto.id,
         'Trimmed Name',
       );

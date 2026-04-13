@@ -18,7 +18,11 @@ const mockActiveCode = {
 
 describe('TournamentJoinCodeController', () => {
   let controller: TournamentJoinCodeController;
-  let joinCodesService: JoinCodesService;
+  const mockJoinCodesService = {
+    getActiveJoinCode: jest.fn().mockResolvedValue(mockActiveCode),
+    generateJoinCode: jest.fn().mockResolvedValue(mockActiveCode),
+    revokeJoinCode: jest.fn().mockResolvedValue({ revoked: true }),
+  };
 
   beforeEach(async () => {
     const module: TestingModule = await Test.createTestingModule({
@@ -26,11 +30,7 @@ describe('TournamentJoinCodeController', () => {
       providers: [
         {
           provide: JoinCodesService,
-          useValue: {
-            getActiveJoinCode: jest.fn().mockResolvedValue(mockActiveCode),
-            generateJoinCode: jest.fn().mockResolvedValue(mockActiveCode),
-            revokeJoinCode: jest.fn().mockResolvedValue({ revoked: true }),
-          },
+          useValue: mockJoinCodesService,
         },
         {
           provide: SupabaseService,
@@ -39,14 +39,14 @@ describe('TournamentJoinCodeController', () => {
       ],
     }).compile();
     controller = module.get<TournamentJoinCodeController>(TournamentJoinCodeController);
-    joinCodesService = module.get<JoinCodesService>(JoinCodesService);
+    jest.clearAllMocks();
   });
 
   describe('getActiveJoinCode', () => {
     it('should return active join code', async () => {
       const actualResult = await controller.getActiveJoinCode(mockUserId, mockTournamentId);
       expect(actualResult).toEqual(mockActiveCode);
-      expect(joinCodesService.getActiveJoinCode).toHaveBeenCalledWith(mockUserId, mockTournamentId);
+      expect(mockJoinCodesService.getActiveJoinCode).toHaveBeenCalledWith(mockUserId, mockTournamentId);
     });
 
     it('should reject invalid tournamentId UUID', async () => {
@@ -62,7 +62,7 @@ describe('TournamentJoinCodeController', () => {
         ttlMinutes: 120,
       });
       expect(actualResult).toEqual(mockActiveCode);
-      expect(joinCodesService.generateJoinCode).toHaveBeenCalledWith({
+      expect(mockJoinCodesService.generateJoinCode).toHaveBeenCalledWith({
         actorUserId: mockUserId,
         tournamentId: mockTournamentId,
         command: { ttlMinutes: 120 },
@@ -92,7 +92,7 @@ describe('TournamentJoinCodeController', () => {
     it('should return revoked response', async () => {
       const actualResult = await controller.revokeJoinCode(mockUserId, mockTournamentId);
       expect(actualResult).toEqual({ revoked: true });
-      expect(joinCodesService.revokeJoinCode).toHaveBeenCalledWith(mockUserId, mockTournamentId);
+      expect(mockJoinCodesService.revokeJoinCode).toHaveBeenCalledWith(mockUserId, mockTournamentId);
     });
 
     it('should reject invalid tournamentId UUID', async () => {

@@ -1,0 +1,37 @@
+#!/usr/bin/env sh
+set -e
+
+repositoryRootPath="$(git rev-parse --show-toplevel)"
+cd "$repositoryRootPath"
+
+if [ -n "${VOLTA_HOME:-}" ] && [ -d "$VOLTA_HOME/bin" ]; then
+  export PATH="$VOLTA_HOME/bin:$PATH"
+fi
+if [ -s "$HOME/.nvm/nvm.sh" ]; then
+  . "$HOME/.nvm/nvm.sh"
+fi
+if [ -s "$HOME/.asdf/asdf.sh" ]; then
+  . "$HOME/.asdf/asdf.sh"
+fi
+if [ -s "$HOME/.config/fnm/fnm.sh" ]; then
+  . "$HOME/.config/fnm/fnm.sh"
+fi
+
+stagedFiles="$(git diff --cached --name-only --diff-filter=ACMR)"
+if [ -z "$stagedFiles" ]; then
+  exit 0
+fi
+
+if ! command -v npm >/dev/null 2>&1; then
+  echo "npm not found in pre-commit environment."
+  echo "Add Node initialization to ~/.config/husky/init.sh and retry."
+  exit 1
+fi
+
+npm run lint:fix
+
+echo "$stagedFiles" | while IFS= read -r filePath; do
+  if [ -n "$filePath" ] && [ -f "$filePath" ]; then
+    git add "$filePath"
+  fi
+done
