@@ -587,6 +587,25 @@ export const importRunsListQuerySchema = paginationQuerySchema.extend({
 export type ImportRunsListQueryInput = z.infer<typeof importRunsListQuerySchema>;
 
 // ---------------------------------------------------------------------------
+// 2.15 Audit and observability
+// ---------------------------------------------------------------------------
+
+export const auditEventsListQuerySchema = paginationQuerySchema.extend({
+  sort: z.enum(["createdAt", "-createdAt"]).default("-createdAt"),
+  teamId: z.uuid("teamId must be a valid UUID.").optional(),
+  tournamentId: z.uuid("tournamentId must be a valid UUID.").optional(),
+  roundId: z.uuid("roundId must be a valid UUID.").optional(),
+  eventType: z
+    .string()
+    .trim()
+    .min(1, "eventType must not be empty")
+    .max(100, "eventType must be at most 100 characters")
+    .optional(),
+});
+
+export type AuditEventsListQueryInput = z.infer<typeof auditEventsListQuerySchema>;
+
+// ---------------------------------------------------------------------------
 // 2.16 Explicit business-operation endpoints
 // ---------------------------------------------------------------------------
 

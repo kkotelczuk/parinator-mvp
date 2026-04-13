@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
+import { AuditModule } from './audit/audit.module';
 import { AuthModule } from './auth/auth.module';
 import { ImportsModule } from './imports/imports.module';
 import { JoinCodesModule } from './join-codes/join-codes.module';
@@ -15,6 +16,7 @@ import { UsersModule } from './users/users.module';
   imports: [
     ConfigModule.forRoot({ isGlobal: true }),
     AuthModule,
+    AuditModule,
     UsersModule,
     TeamsModule,
     TournamentsModule,
