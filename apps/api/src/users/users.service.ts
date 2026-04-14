@@ -4,7 +4,7 @@ import {
   Logger,
   NotFoundException,
 } from '@nestjs/common';
-import type { UserMeDto } from '@parinator/schema';
+import type { AvailableMembershipDto, UserMeDto } from '@parinator/schema';
 import { SupabaseService } from '../supabase/supabase.service';
 
 const USER_COLUMNS = 'id, email, display_name, is_active, created_at, updated_at' as const;
@@ -35,6 +35,29 @@ export class UsersService {
       });
     }
     return this.mapRowToDto(data);
+  }
+
+  /** List active team memberships for the authenticated user (for context switching). */
+  async listAvailableMemberships(userId: string): Promise<AvailableMembershipDto[]> {
+    const { data, error } = await this.supabaseService
+      .getClient()
+      .from('team_memberships')
+      .select('id, team_id, role, is_playing')
+      .eq('user_id', userId)
+      .is('left_at', null)
+      .order('joined_at', { ascending: true });
+    if (error || !data) {
+      this.logger.error('Failed to list memberships for user', error);
+      throw new InternalServerErrorException({
+        error: { code: 'INTERNAL_ERROR', message: 'Internal server error.', details: {} },
+      });
+    }
+    return data.map((row) => ({
+      membershipId: row.id,
+      teamId: row.team_id,
+      role: row.role,
+      isPlaying: row.is_playing,
+    }));
   }
 
   /** Update the authenticated user's display name and return updated profile. */

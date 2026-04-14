@@ -6,7 +6,12 @@ import {
   Patch,
   UseGuards,
 } from '@nestjs/common';
-import { patchUserMeSchema, type PatchUserMeInput, type UserMeDto } from '@parinator/schema';
+import {
+  patchUserMeSchema,
+  type AvailableMembershipDto,
+  type PatchUserMeInput,
+  type UserMeDto,
+} from '@parinator/schema';
 import { CurrentUserId } from '../common/decorators/current-user-id.decorator';
 import { JwtAuthGuard } from '../common/guards/jwt-auth.guard';
 import { UsersService } from './users.service';
@@ -15,6 +20,12 @@ import { UsersService } from './users.service';
 @UseGuards(JwtAuthGuard)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
+
+  /** GET /api/v1/users/me/memberships — Active memberships for context switching. */
+  @Get('me/memberships')
+  async listMyMemberships(@CurrentUserId() userId: string): Promise<AvailableMembershipDto[]> {
+    return this.usersService.listAvailableMemberships(userId);
+  }
 
   /** GET /api/v1/users/me — Read own profile. */
   @Get('me')

@@ -17,6 +17,7 @@ describe('UsersController', () => {
   let controller: UsersController;
   const mockUsersService = {
     findById: jest.fn().mockResolvedValue(mockUserDto),
+    listAvailableMemberships: jest.fn().mockResolvedValue([]),
     updateDisplayName: jest.fn().mockResolvedValue({
       ...mockUserDto,
       displayName: 'Updated Name',
@@ -46,6 +47,23 @@ describe('UsersController', () => {
       const actualResult = await controller.getMe(mockUserDto.id);
       expect(actualResult).toEqual(mockUserDto);
       expect(mockUsersService.findById).toHaveBeenCalledWith(mockUserDto.id);
+    });
+  });
+
+  describe('listMyMemberships', () => {
+    it('should return memberships from service', async () => {
+      const memberships = [
+        {
+          membershipId: 'a1111111-1111-4111-8111-111111111111',
+          teamId: 'b2222222-2222-4222-8222-222222222222',
+          role: 'captain' as const,
+          isPlaying: true,
+        },
+      ];
+      mockUsersService.listAvailableMemberships.mockResolvedValueOnce(memberships);
+      const actualResult = await controller.listMyMemberships(mockUserDto.id);
+      expect(actualResult).toEqual(memberships);
+      expect(mockUsersService.listAvailableMemberships).toHaveBeenCalledWith(mockUserDto.id);
     });
   });
 

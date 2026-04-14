@@ -25,9 +25,26 @@ function createMockQueryBuilder(overrides: { data?: unknown; error?: unknown } =
   const builder = {
     select: jest.fn().mockReturnThis(),
     eq: jest.fn().mockReturnThis(),
+    is: jest.fn().mockReturnThis(),
+    order: jest.fn().mockReturnThis(),
     update: jest.fn().mockReturnThis(),
     single: jest.fn().mockResolvedValue({
       data: overrides.data ?? mockUserRow,
+      error: overrides.error ?? null,
+    }),
+  };
+  return builder;
+}
+
+function createMembershipListBuilder(
+  overrides: { data?: unknown; error?: unknown } = {},
+) {
+  const builder = {
+    select: jest.fn().mockReturnThis(),
+    eq: jest.fn().mockReturnThis(),
+    is: jest.fn().mockReturnThis(),
+    order: jest.fn().mockResolvedValue({
+      data: overrides.data ?? [],
       error: overrides.error ?? null,
     }),
   };
@@ -74,6 +91,41 @@ describe('UsersService', () => {
       const builder = createMockQueryBuilder({ data: null, error: { code: 'UNEXPECTED' } });
       mockFrom.mockReturnValue(builder);
       await expect(service.findById(mockUserRow.id)).rejects.toThrow(
+        InternalServerErrorException,
+      );
+    });
+  });
+
+  describe('listAvailableMemberships', () => {
+    it('should map active memberships to DTOs', async () => {
+      const rows = [
+        {
+          id: 'a1111111-1111-4111-8111-111111111111',
+          team_id: 'b2222222-2222-4222-8222-222222222222',
+          role: 'captain' as const,
+          is_playing: true,
+        },
+      ];
+      const builder = createMembershipListBuilder({ data: rows });
+      mockFrom.mockReturnValue(builder);
+      const actualResult = await service.listAvailableMemberships(mockUserRow.id);
+      expect(mockFrom).toHaveBeenCalledWith('team_memberships');
+      expect(builder.eq).toHaveBeenCalledWith('user_id', mockUserRow.id);
+      expect(builder.is).toHaveBeenCalledWith('left_at', null);
+      expect(actualResult).toEqual([
+        {
+          membershipId: rows[0].id,
+          teamId: rows[0].team_id,
+          role: rows[0].role,
+          isPlaying: rows[0].is_playing,
+        },
+      ]);
+    });
+
+    it('should throw InternalServerErrorException on DB error', async () => {
+      const builder = createMembershipListBuilder({ data: null, error: { code: 'UNEXPECTED' } });
+      mockFrom.mockReturnValue(builder);
+      await expect(service.listAvailableMemberships(mockUserRow.id)).rejects.toThrow(
         InternalServerErrorException,
       );
     });
